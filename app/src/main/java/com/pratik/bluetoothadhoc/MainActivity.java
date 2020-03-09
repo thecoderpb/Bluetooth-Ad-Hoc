@@ -7,12 +7,15 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
     public static String PACKAGE_NAME = "com.bluetoothadhoc";
-    Map<String, String> masterProp;
+    Map<String, String> masterProp ;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -33,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        masterProp = new HashMap<>();
         myDeviceProp();
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
@@ -51,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
         masterProp.put("DEVICE", Build.DEVICE);
 
 
+       Log.i("asdf",readCPUinfo());
+
     }
 
     /**
@@ -58,4 +64,28 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromJNI();
+
+
+    private String readCPUinfo()
+    {
+        ProcessBuilder cmd;
+        String result="";
+
+        try{
+            String[] args = {"/system/bin/cat", "/proc/cpuinfo"};
+            cmd = new ProcessBuilder(args);
+
+            Process process = cmd.start();
+            InputStream in = process.getInputStream();
+            byte[] re = new byte[1024];
+            while(in.read(re) != -1){
+                System.out.println(new String(re));
+                result = result + new String(re);
+            }
+            in.close();
+        } catch(IOException ex){
+            ex.printStackTrace();
+        }
+        return result;
+    }
 }
