@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">Bluetooth Ad Hoc</string>
+
+    <string name="next">NEXT</string>
+    <string name="skip">SKIP</string>
+    <string name="start">GOT IT</string>
+
+    <string name="slide_1_title">Start Connecting</string>
+    <string name="slide_1_desc">Create cluster to exploit device computation power.</string>
+
+    <string name="slide_2_title">Power in your hands</string>
+    <string name="slide_2_desc">Your device plays a major role in ad hoc cluster computation</string>
+
+    <string name="slide_3_title">Get tasks done</string>
+    <string name="slide_3_desc">Larger the cluster, faster the work gets done</string>
+
+    <string name="slide_4_title">Watch your progress</string>
+    <string name="slide_4_desc">See huge task being crunched and completed in much lesser time </string>
+
+    <string name="play_again_desc">To see the welcome slider again, goto Settings -> apps -> welcome slider -> clear data</string>
+    <string name="play_again">Play Again</string>
+
 </resources>
