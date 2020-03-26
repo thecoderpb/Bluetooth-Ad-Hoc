@@ -1,33 +1,31 @@
 package com.pratik.bluetoothadhoc;
 
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.os.Build;
 import android.util.Log;
 
 import java.io.IOException;
 import java.util.UUID;
 
-import static android.content.ContentValues.TAG;
 import static android.provider.CalendarContract.Calendars.NAME;
-import static com.pratik.bluetoothadhoc.ManageUUID.MY_UUID;
+
 
 public class BtAcceptThread extends Thread {
-
-
     private final BluetoothServerSocket mmServerSocket;
+    public static final String TAG ="asdf";
 
-
-    public BtAcceptThread() {
+    public BtAcceptThread(String Uuid) {
         // Use a temporary object that is later assigned to mmServerSocket
         // because mmServerSocket is final.
         BluetoothServerSocket tmp = null;
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         try {
-            // MY_UUID is the app's getUUIDs string, also used by the client code.
-            tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord(NAME, UUID.fromString(MY_UUID));
+            // MY_UUID is the app's UUID string, also used by the client code.
+            BluetoothHandler handler = new BluetoothHandler();
+
+            tmp = handler.getBtAdapter().listenUsingRfcommWithServiceRecord(NAME, UUID.fromString(Uuid));
         } catch (IOException e) {
-            Log.e("asdf", "Socket's listen() method failed", e);
+            Log.e(TAG, "Socket's listen() method failed", e);
         }
         mmServerSocket = tmp;
     }
@@ -37,9 +35,9 @@ public class BtAcceptThread extends Thread {
         // Keep listening until exception occurs or a socket is returned.
         while (true) {
             try {
-                //blocking call;
+                Log.i("asdf","listening");
                 socket = mmServerSocket.accept();
-
+                Log.i("asdf","listened");
             } catch (IOException e) {
                 Log.e(TAG, "Socket's accept() method failed", e);
                 break;
@@ -48,7 +46,7 @@ public class BtAcceptThread extends Thread {
             if (socket != null) {
                 // A connection was accepted. Perform work associated with
                 // the connection in a separate thread.
-                // manageMyConnectedSocket(socket);
+                manageConnectedSocket(socket);
                 try {
                     mmServerSocket.close();
                 } catch (IOException e) {
@@ -59,6 +57,15 @@ public class BtAcceptThread extends Thread {
         }
     }
 
+    private void manageConnectedSocket(BluetoothSocket socket) {
+
+        BluetoothMessageService service = new BluetoothMessageService();
+        service.connectService(socket);
+        service.sendMessage(Build.PRODUCT);
+
+
+    }
+
     // Closes the connect socket and causes the thread to finish.
     public void cancel() {
         try {
@@ -67,6 +74,4 @@ public class BtAcceptThread extends Thread {
             Log.e(TAG, "Could not close the connect socket", e);
         }
     }
-
-
 }

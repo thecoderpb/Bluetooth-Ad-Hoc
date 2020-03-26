@@ -19,5 +19,8 @@
 
     <string name="play_again_desc">To see the welcome slider again, goto Settings -> apps -> welcome slider -> clear data</string>
     <string name="play_again">Play Again</string>
+    <string name="devices_ready_for_task">Devices Ready For Task</string>
+    <string name="paired_devices">Paired Devices</string>
+    <string name="enable_bluetooth">Enable Bluetooth</string>
 
 </resources>

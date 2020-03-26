@@ -14,45 +14,47 @@
         android:layout_height="0dp"
         android:layout_alignParentBottom="true"
         android:background="@color/colorPrimary"
-        android:text="Enable Bluetooth"
+        android:text="@string/enable_bluetooth"
         android:textColor="@android:color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
     <ListView
-        android:id="@+id/search_lv"
+        android:id="@+id/pair_lv"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/pair_tv"
-        app:layout_constraintTop_toBottomOf="@+id/search_tv"
+        app:layout_constraintBottom_toTopOf="@+id/task_ready_tv"
+        app:layout_constraintTop_toBottomOf="@+id/pair_tv"
         tools:layout_editor_absoluteX="0dp" />
 
     <ListView
-        android:id="@+id/paired_lv"
+        android:id="@+id/task_ready_lv"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_above="@+id/bt_btn"
         app:layout_constraintBottom_toTopOf="@+id/bt_btn"
-        app:layout_constraintTop_toBottomOf="@+id/pair_tv"
+        app:layout_constraintTop_toBottomOf="@+id/task_ready_tv"
         app:layout_constraintVertical_bias="0.0"
         tools:layout_editor_absoluteX="-16dp" />
 
     <TextView
-        android:id="@+id/search_tv"
+        android:id="@+id/pair_tv"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Search Devices"
+        android:text="@string/paired_devices"
+        android:textAlignment="center"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
-        android:id="@+id/pair_tv"
+        android:id="@+id/task_ready_tv"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Paired Devices"
+        android:textAlignment="center"
+        android:text="@string/devices_ready_for_task"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static android.content.ContentValues.TAG;
-import static com.pratik.bluetoothadhoc.ManageUUID.MY_UUID;
+
 
 public class BtConnectThread extends Thread {
 
@@ -29,13 +29,18 @@ public class BtConnectThread extends Thread {
         try {
             // Get a BluetoothSocket to connect with the given BluetoothDevice.
             // MY_UUID is the app's getUUIDs string, also used in the server code.
-            tmp = device.createRfcommSocketToServiceRecord(UUID.fromString(MY_UUID));
+            ManageUUID manageUUID = new ManageUUID();
+            for(int i=0;i<manageUUID.getDummyUuids().size();i++){
+                tmp = device.createRfcommSocketToServiceRecord(UUID.fromString(manageUUID.getDummyUuids().get(i).toString()));
+            }
+
         } catch (IOException e) {
             Log.e(TAG, "Socket's create() method failed", e);
         }
         mmSocket = tmp;
     }
 
+    @Override
     public void run() {
         // Cancel discovery because it otherwise slows down the connection.
         btAdapter.cancelDiscovery();
@@ -43,7 +48,9 @@ public class BtConnectThread extends Thread {
         try {
             // Connect to the remote device through the socket. This call blocks
             // until it succeeds or throws an exception.
+            Log.i("asdf","connecting");
             mmSocket.connect();
+            Log.i("asdf","connected");
         } catch (IOException connectException) {
             // Unable to connect; close the socket and return.
             try {
@@ -56,7 +63,15 @@ public class BtConnectThread extends Thread {
 
         // The connection attempt succeeded. Perform work associated with
         // the connection in a separate thread.
-        //manageMyConnectedSocket(mmSocket);
+        manageConnectedSocket(mmSocket);
+    }
+
+    private void manageConnectedSocket(BluetoothSocket mmSocket) {
+
+
+        BluetoothMessageService service = new BluetoothMessageService();
+        service.connectService(mmSocket);
+
     }
 
     // Closes the client socket and causes the thread to finish.

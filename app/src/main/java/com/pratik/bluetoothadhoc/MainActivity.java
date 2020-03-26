@@ -1,6 +1,5 @@
 package com.pratik.bluetoothadhoc;
 
-import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -8,25 +7,24 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,11 +51,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
-    @SuppressLint("StaticFieldLeak")
     private static Button btButton;
     static int btnFlag = 0;
+    private DeviceProps deviceProps;
 
-    ArrayList<String> pairedList,searchList;
+    ArrayList<String> pairedList, deviceReadyList;
 
     @Override
     protected void onDestroy() {
@@ -72,12 +70,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        masterProp = new HashMap<>();
-        pairedList = new ArrayList<>();
-        searchList = new ArrayList<>();
         BluetoothHandler btHandler = new BluetoothHandler();
         btAdapter = btHandler.getBtAdapter();
+        if(btAdapter == null){
+            Toast.makeText(this, "Bluetooth does not exits. App cannot run", Toast.LENGTH_LONG).show();
+            finish();
+        }
+
+        masterProp = new HashMap<>();
+        pairedList = new ArrayList<>();
+        deviceReadyList = new ArrayList<>();
+
         btButton = findViewById(R.id.bt_btn);
+
+        deviceProps = new DeviceProps();
         myDeviceProp();
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
@@ -102,21 +108,83 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             btnFlag = 1;
             setButtonText(btnFlag);
         }
+
+
+        manageHandler();
+
+    }
+
+    private void manageHandler() {
+
+        Handler handler = new Handler(Looper.getMainLooper()){
+
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                Log.i("asdf",msg.toString());
+            }
+        };
+
+
     }
 
     private void handleListViews() {
 
 
-        ListView searchListView = findViewById(R.id.search_lv);
-        ListView pairedListView = findViewById(R.id.paired_lv);
+        ListView deviceReadyListView = findViewById(R.id.task_ready_lv);
+        ListView pairedListView = findViewById(R.id.pair_lv);
 
         Set<String> devices = getPairedDevices().keySet();
+        Map<String,String> pairedDevices = getPairedDevices();
         pairedList.addAll(devices);
 
         ArrayAdapter<String> pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
         pairedListView.setAdapter(pairedListAdapter);
 
+        pairedListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Log.i("asdf",pairedList.get(position));
+                BluetoothDevice device = getPairedBtDevices(pairedList.get(position));
+                Log.i("asdf","Pairing");
+                if (device != null) {
+                    BtConnectThread thread = new BtConnectThread(device);
+                    thread.start();
+                }
+            }
+        });
 
+
+        ManageUUID manageUUID = new ManageUUID();
+        for(int i=0;i<manageUUID.getDummyUuids().size();i++){
+            BtAcceptThread thread = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
+            thread.start();
+        }
+        /*ParcelUuid[] uuids = manageUUID.getUUIDs();
+        for (ParcelUuid uuid : uuids) {
+            Log.i("asdf", "uuid: " + uuid.toString());
+            BtAcceptThread thread = new BtAcceptThread();
+            thread.start();
+        }*/
+
+        /*final ArrayAdapter<String> deviceReadyAdapter = new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,deviceReadyList);
+        deviceReadyList.addAll(devices);*/
+
+
+       /* new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                deviceReadyListView.setAdapter(deviceReadyAdapter);
+                Log.i("asdf","Getting device prop");
+
+            }
+        },3000);*/
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+
+            }
+        },1000);
 
     }
 
@@ -153,49 +221,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         masterProp.put("VERSION.SDK_INT", String.valueOf(Build.VERSION.SDK_INT));
         masterProp.put("BOARD", Build.BOARD);
         masterProp.put("DEVICE", Build.DEVICE);
-        masterProp.put("CPU_MAX_FREQ", getMaxFreq());
+        masterProp.put("CPU_MAX_FREQ", deviceProps.getMaxFreq());
+
+
+        Log.i("asdf", "My device number of cores: " + String.valueOf(deviceProps.getNumberOfCores()));
+        Log.i("asdf","My device max freq: " + deviceProps.getMaxFreq());
+
 
     }
 
-    private String getMaxFreq() {
 
-        String cpuMaxFreq = "0";
-        RandomAccessFile reader;
-        try {
-            reader = new RandomAccessFile("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r");
-            cpuMaxFreq = reader.readLine();
-            reader.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return cpuMaxFreq;
-    }
 
     public native String stringFromJNI();
 
-    private void readCPUinfo() {
-        ProcessBuilder cmd;
-        String result = "";
 
-        try {
-            String[] args = {"/system/bin/cat", "/proc/cpuinfo"};
-            cmd = new ProcessBuilder(args);
-
-            Process process = cmd.start();
-            InputStream in = process.getInputStream();
-            byte[] re = new byte[1024];
-            while (in.read(re) != -1) {
-                System.out.println(new String(re));
-                result = result + new String(re);
-            }
-            in.close();
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-
-        Log.i("asdf", result);
-        //return result;
-    }
 
     public void enableBluetooth() {
 
@@ -211,7 +250,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.i("asdf", uuids.getUuid().toString());
             }
             // enableDiscovery();
-            getPairedDevices();
+            //getPairedDevices();
         }
 
     }
@@ -246,11 +285,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 String deviceName = device.getName();
                 String deviceHardwareAddress = device.getAddress(); // MAC address
                 btPairedList.put(deviceName, deviceHardwareAddress);
-                Log.i("asdf", "Device Name: " + deviceName + ", Device Address: " + deviceHardwareAddress);
+                Log.i("asdf", "Device Name: " + deviceName + ", Device MAC Address: " + deviceHardwareAddress);
             }
         }
         return btPairedList;
 
+    }
+
+    private BluetoothDevice getPairedBtDevices(String deviceName){
+        Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
+        if(pairedDevices.size()>0){
+            for(BluetoothDevice device : pairedDevices){
+                if(device.getName().equals(deviceName))
+                    return device;
+            }
+        }
+        return null;
     }
 
     @Override
