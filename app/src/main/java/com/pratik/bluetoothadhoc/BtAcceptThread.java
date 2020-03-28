@@ -61,7 +61,7 @@ public class BtAcceptThread extends Thread {
 
         BluetoothMessageService service = new BluetoothMessageService();
         service.connectService(socket);
-        service.sendMessage(Build.PRODUCT);
+        service.sendMessage(Build.MODEL);
 
 
     }
