@@ -15,7 +15,7 @@ class BluetoothHandler {
 
     private BluetoothAdapter btAdapter = null;
 
-    BluetoothAdapter getBtAdapter() {
+    public BluetoothAdapter getBtAdapter() {
         btAdapter = BluetoothAdapter.getDefaultAdapter();
         return btAdapter;
     }

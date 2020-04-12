@@ -21,6 +21,7 @@ import androidx.core.text.HtmlCompat;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
+
 public class WelcomeActivity extends AppCompatActivity {
 
     private ViewPager viewPager;
@@ -28,6 +29,7 @@ public class WelcomeActivity extends AppCompatActivity {
     private int[] layouts;
     private Button btnSkip, btnNext;
     private PrefManager prefManager;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,9 +97,10 @@ public class WelcomeActivity extends AppCompatActivity {
                 if (current < layouts.length) {
                     // move to next screen
                     viewPager.setCurrentItem(current);
-                }else launchHomeScreen();
+                } else launchHomeScreen();
             }
         });
+
 
     }
 
@@ -133,7 +136,6 @@ public class WelcomeActivity extends AppCompatActivity {
         startActivity(new Intent(WelcomeActivity.this, MainActivity.class));
         finish();
     }
-
 
 
     //  viewpager change listener
@@ -215,4 +217,6 @@ public class WelcomeActivity extends AppCompatActivity {
             container.removeView(view);
         }
     }
+
+
 }

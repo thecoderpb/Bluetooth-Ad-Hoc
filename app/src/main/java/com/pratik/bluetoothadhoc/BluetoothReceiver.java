@@ -12,7 +12,7 @@ import static com.pratik.bluetoothadhoc.MainActivity.setButtonText;
 
 public class BluetoothReceiver extends BroadcastReceiver {
 
-    BluetoothHandler btHandler;
+
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -28,11 +28,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
         } else if (BluetoothAdapter.ACTION_SCAN_MODE_CHANGED.equals(action)) {
 
-            btHandler = new BluetoothHandler();
-            if (btHandler.getBtAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+
+            if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
                btnFlag = 2;
                setButtonText(btnFlag);
-            } else if(btHandler.getBtAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
+            } else if(BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
                 btnFlag = 1;
                 setButtonText(btnFlag);
             }
@@ -46,6 +46,11 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 btnFlag = 1;
                 setButtonText(btnFlag);
                 Log.i("asdf", "bt on");
+                ManageUUID manageUUID = new ManageUUID();
+                for(int i=0;i<manageUUID.getDummyUuids().size();i++){
+                    BtAcceptThread thread = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
+                    thread.start();
+                }
 
             } else if (state == BluetoothAdapter.STATE_OFF) {
                 btnFlag = 0;

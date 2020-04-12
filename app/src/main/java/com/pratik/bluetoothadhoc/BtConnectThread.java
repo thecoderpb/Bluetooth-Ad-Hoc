@@ -15,15 +15,15 @@ public class BtConnectThread extends Thread {
 
     private final BluetoothSocket mmSocket;
     private final BluetoothDevice mmDevice;
-    private BluetoothHandler btHandler;
+
     private BluetoothAdapter btAdapter;
 
     public BtConnectThread(BluetoothDevice device) {
         // Use a temporary object that is later assigned to mmSocket
         // because mmSocket is final.
         BluetoothSocket tmp = null;
-        btHandler = new BluetoothHandler();
-        btAdapter = btHandler.getBtAdapter();
+
+        btAdapter = BluetoothAdapter.getDefaultAdapter();
         mmDevice = device;
 
         try {

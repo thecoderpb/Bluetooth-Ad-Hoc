@@ -12,42 +12,27 @@ import androidx.annotation.NonNull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+
+
+import static com.pratik.bluetoothadhoc.MainActivity.handler;
 
 public class BluetoothMessageService {
     private static final String TAG = "asdf";
-    private Handler handler; // handler that gets info from Bluetooth service
+     // handler that gets info from Bluetooth service
     private ConnectedThread thread;
+    static String remoteDeviceName;
 
     public static Map<String, Integer> deviceRanking = new HashMap<>();
 
 
     public void connectService(BluetoothSocket socket) {
-
-        handler = new Handler(Looper.getMainLooper()) {
-            @Override
-            public void handleMessage(@NonNull Message msg) {
-                if (msg.what == MessageConstants.MESSAGE_READ) {
-                    Object obj = msg.obj;
-                    byte[] message = (byte[]) obj;
-                    String str = new String(message);
-                    //Log.i("asdf",str);
-
-                    String[] strings = new String[3];
-                    String[] split = str.split("\0");
-                    strings[0] = split[0].substring(0, 7);
-                    strings[1] = split[0].substring(8, 9);
-                    strings[2] = split[0].substring(10);
-                    Log.i("asdf", "device freq:" + strings[0]);
-                    Log.i("asdf", "device max cores:" + strings[1]);
-                    Log.i("asdf", "device name:" + strings[2]);
-                    rankDevice(strings[0], strings[1], strings[2]);
-                }
-
-            }
-
-        };
 
         thread = new ConnectedThread(socket);
         thread.start();
@@ -56,20 +41,46 @@ public class BluetoothMessageService {
     private void rankDevice(String cpuFreq, String cores, String deviceName) {
 
         int size = deviceRanking.size();
-
+        
+        Map<String,Integer> sorted = new HashMap<>();
+        sorted = sortByValue(deviceRanking);
 
 
 
     }
 
-    public void sendMessage(String deviceName) {
+    private  Map<String, Integer> sortByValue(Map<String, Integer> hm)
+    {
+        // Create a list from elements of HashMap
+        List<Map.Entry<String, Integer> > list =
+                new LinkedList<Map.Entry<String, Integer> >(hm.entrySet());
+
+        // Sort the list
+        Collections.sort(list, new Comparator<Map.Entry<String, Integer> >() {
+            public int compare(Map.Entry<String, Integer> o1,
+                               Map.Entry<String, Integer> o2)
+            {
+                return (o1.getValue()).compareTo(o2.getValue());
+            }
+        });
+
+        // put data from sorted list to hashmap
+        Map<String, Integer> temp = new LinkedHashMap<String, Integer>();
+        for (Map.Entry<String, Integer> aa : list) {
+            temp.put(aa.getKey(), aa.getValue());
+        }
+        return temp;
+    }
+
+    public void sendMessage(String deviceName,String remoteDeviceName) {
+        BluetoothMessageService.remoteDeviceName = remoteDeviceName;
         DeviceProps props = new DeviceProps();
-        String msg = props.getMaxFreq() + " " + props.getNumberOfCores() + " " + deviceName + "\0";
+        String msg = props.getMaxFreq() + " " + props.getNumberOfCores() + " " + props.getGPUinfo() + " "+ deviceName  +"\0";
         byte[] message = msg.getBytes();
         thread.write(message, msg);
     }
 
-    private interface MessageConstants {
+    public interface MessageConstants {
         int MESSAGE_READ = 0;
         int MESSAGE_WRITE = 1;
         int MESSAGE_TOAST = 2;

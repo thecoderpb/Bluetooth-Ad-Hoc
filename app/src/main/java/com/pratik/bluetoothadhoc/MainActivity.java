@@ -17,10 +17,12 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.ArrayList;
@@ -28,11 +30,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static com.pratik.bluetoothadhoc.BluetoothMessageService.remoteDeviceName;
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private static final int REQUEST_ENABLE_BT = 1;
 
     static int ConnectedDeviceCount = 0;
+    public static Handler handler;
+    private String mGlInfo;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -70,9 +76,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        BluetoothHandler btHandler = new BluetoothHandler();
-        btAdapter = btHandler.getBtAdapter();
-        if(btAdapter == null){
+        btAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (btAdapter == null) {
             Toast.makeText(this, "Bluetooth does not exits. App cannot run", Toast.LENGTH_LONG).show();
             finish();
         }
@@ -85,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         deviceProps = new DeviceProps();
         myDeviceProp();
+        mGlInfo = gatherGlInfo();
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
 
@@ -111,18 +117,76 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
         manageHandler();
+        final TextView rankText = findViewById(R.id.task_ready_tv);
+
+    }
+
+    private String gatherGlInfo() {
+
+        return "";
 
     }
 
     private void manageHandler() {
 
-        Handler handler = new Handler(Looper.getMainLooper()){
+        handler = new Handler(Looper.getMainLooper()) {
 
             @Override
             public void handleMessage(@NonNull Message msg) {
-                Log.i("asdf",msg.toString());
+                if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_READ) {
+                    Object obj = msg.obj;
+                    byte[] message = (byte[]) obj;
+                    String strs = new String(message);
+                    //Log.i("asdf",str);
+
+                    String[] strings = new String[4];
+                    String[] split = strs.split("\0"); //entire msg
+                    Log.i("asdf",split[0]);
+                    //TODO: Fix the substring issue
+                    strings[0] = split[0].substring(0, 7); // freq
+                    strings[1] = split[0].substring(8, 9); // core
+                    strings[2] = split[0].substring(10); //gpu and device name
+                    if(strings[2].startsWith("Adreno",11)){
+                        strings[3] = strings[2].substring(10,20) ;
+                        strings[2] = strings[2].substring(20);
+                    }
+
+                    Log.i("asdf", "device freq:" + strings[0]);
+                    Log.i("asdf", "device max cores:" + strings[1]);
+                    Log.i("asdf", "device name:" + strings[2]);
+                    rankDevice(strings[0], strings[1], strings[3], strings[2]);
+                } else if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_WRITE) {
+                    displayAlert();
+                }
+
             }
+
         };
+
+
+    }
+
+    private void displayAlert() {
+
+        String str = "Slave (this device " + Build.MODEL + ") connected to master " + remoteDeviceName;
+
+        new AlertDialog.Builder(this)
+                .setTitle("Connected to master")
+                .setMessage(str)
+                .setPositiveButton("OK", null)
+                .show();
+
+
+    }
+
+    private void rankDevice(String cpuFreq, String cpuCore, String gpu, String deviceName) {
+
+        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores:" + cpuCore + "\nDevice gpu : " + gpu;
+        new AlertDialog.Builder(this)
+                .setTitle("Device Props obtained")
+                .setMessage(text)
+                .setPositiveButton("Ok", null)
+                .show();
 
 
     }
@@ -134,7 +198,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         ListView pairedListView = findViewById(R.id.pair_lv);
 
         Set<String> devices = getPairedDevices().keySet();
-        Map<String,String> pairedDevices = getPairedDevices();
+        Map<String, String> pairedDevices = getPairedDevices();
         pairedList.addAll(devices);
 
         ArrayAdapter<String> pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
@@ -143,48 +207,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         pairedListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Log.i("asdf",pairedList.get(position));
+                Log.i("asdf", pairedList.get(position));
                 BluetoothDevice device = getPairedBtDevices(pairedList.get(position));
-                Log.i("asdf","Pairing");
-                if (device != null) {
+                Log.i("asdf", "Pairing");
+                if (device != null && BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
                     BtConnectThread thread = new BtConnectThread(device);
                     thread.start();
                 }
             }
         });
 
-
-        ManageUUID manageUUID = new ManageUUID();
-        for(int i=0;i<manageUUID.getDummyUuids().size();i++){
-            BtAcceptThread thread = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
-            thread.start();
+        if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
+            ManageUUID manageUUID = new ManageUUID();
+            for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
+                BtAcceptThread thread = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
+                thread.start();
+            }
         }
-        /*ParcelUuid[] uuids = manageUUID.getUUIDs();
-        for (ParcelUuid uuid : uuids) {
-            Log.i("asdf", "uuid: " + uuid.toString());
-            BtAcceptThread thread = new BtAcceptThread();
-            thread.start();
-        }*/
 
-        /*final ArrayAdapter<String> deviceReadyAdapter = new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,deviceReadyList);
-        deviceReadyList.addAll(devices);*/
-
-
-       /* new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                deviceReadyListView.setAdapter(deviceReadyAdapter);
-                Log.i("asdf","Getting device prop");
-
-            }
-        },3000);*/
-
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-
-            }
-        },1000);
 
     }
 
@@ -224,16 +264,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         masterProp.put("CPU_MAX_FREQ", deviceProps.getMaxFreq());
 
 
-        Log.i("asdf", "My device number of cores: " + String.valueOf(deviceProps.getNumberOfCores()));
-        Log.i("asdf","My device max freq: " + deviceProps.getMaxFreq());
+        Log.i("asdf", "My device number of cores: " + deviceProps.getNumberOfCores());
+        Log.i("asdf", "My device max freq: " + deviceProps.getMaxFreq());
+        Log.i("asdf", "My device gpu: " + deviceProps.getGPUinfo());
+        Log.i("asdf", "My device name: " + Build.MODEL);
 
 
     }
 
 
-
     public native String stringFromJNI();
-
 
 
     public void enableBluetooth() {
@@ -260,17 +300,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_OK) {
             Toast.makeText(this, "bt enabled", Toast.LENGTH_SHORT).show();
-            ManageUUID initUUIDs = new ManageUUID();
-            ParcelUuid[] UUIDList;
-            UUIDList = initUUIDs.getUUIDs();
-            for (ParcelUuid uuids : UUIDList) {
-                Log.i("asdf", uuids.getUuid().toString());
-            }
+
             btnFlag = 1;
             setButtonText(btnFlag);
 
         } else {
-
             Toast.makeText(this, "please enable bt by granting permission", Toast.LENGTH_SHORT).show();
         }
     }
@@ -292,11 +326,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-    private BluetoothDevice getPairedBtDevices(String deviceName){
+    private BluetoothDevice getPairedBtDevices(String deviceName) {
         Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
-        if(pairedDevices.size()>0){
-            for(BluetoothDevice device : pairedDevices){
-                if(device.getName().equals(deviceName))
+        if (pairedDevices.size() > 0) {
+            for (BluetoothDevice device : pairedDevices) {
+                if (device.getName().equals(deviceName))
                     return device;
             }
         }

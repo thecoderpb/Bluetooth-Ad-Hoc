@@ -1,8 +1,10 @@
 package com.pratik.bluetoothadhoc;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.os.Build;
+import android.os.Handler;
 import android.util.Log;
 
 import java.io.IOException;
@@ -14,6 +16,7 @@ import static android.provider.CalendarContract.Calendars.NAME;
 public class BtAcceptThread extends Thread {
     private final BluetoothServerSocket mmServerSocket;
     public static final String TAG ="asdf";
+    private Handler handler;
 
     public BtAcceptThread(String Uuid) {
         // Use a temporary object that is later assigned to mmServerSocket
@@ -21,9 +24,9 @@ public class BtAcceptThread extends Thread {
         BluetoothServerSocket tmp = null;
         try {
             // MY_UUID is the app's UUID string, also used by the client code.
-            BluetoothHandler handler = new BluetoothHandler();
 
-            tmp = handler.getBtAdapter().listenUsingRfcommWithServiceRecord(NAME, UUID.fromString(Uuid));
+
+            tmp = BluetoothAdapter.getDefaultAdapter().listenUsingRfcommWithServiceRecord(NAME, UUID.fromString(Uuid));
         } catch (IOException e) {
             Log.e(TAG, "Socket's listen() method failed", e);
         }
@@ -61,7 +64,7 @@ public class BtAcceptThread extends Thread {
 
         BluetoothMessageService service = new BluetoothMessageService();
         service.connectService(socket);
-        service.sendMessage(Build.MODEL);
+        service.sendMessage(Build.MODEL,socket.getRemoteDevice().getName());
 
 
     }

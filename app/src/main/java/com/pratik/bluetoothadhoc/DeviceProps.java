@@ -1,8 +1,14 @@
 package com.pratik.bluetoothadhoc;
 
 import android.annotation.SuppressLint;
+import android.opengl.GLES10;
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.util.Log;
+
+import com.pratik.bluetoothadhoc.gles.EglCore;
+import com.pratik.bluetoothadhoc.gles.OffscreenSurface;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -11,14 +17,16 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.util.regex.Pattern;
 
-public class DeviceProps
-{
+
+public class DeviceProps {
+
+    private GLSurfaceView mGlSurfaceView;
+
     @SuppressLint("ObsoleteSdkInt")
     public int getNumberOfCores() {
-        if(Build.VERSION.SDK_INT >= 17) {
+        if (Build.VERSION.SDK_INT >= 17) {
             return Runtime.getRuntime().availableProcessors();
-        }
-        else {
+        } else {
             return getNumCoresOldPhones();
         }
     }
@@ -30,7 +38,7 @@ public class DeviceProps
             @Override
             public boolean accept(File pathname) {
                 //Check if filename is "cpu", followed by a single digit number
-                if(Pattern.matches("cpu[0-9]+", pathname.getName())) {
+                if (Pattern.matches("cpu[0-9]+", pathname.getName())) {
                     return true;
                 }
                 return false;
@@ -44,13 +52,13 @@ public class DeviceProps
             File[] files = dir.listFiles(new CpuFilter());
             //Return the number of cores (virtual CPU devices)
             return files.length;
-        } catch(Exception e) {
+        } catch (Exception e) {
             //Default to return 1 core
             return 1;
         }
     }
 
-    String getMaxFreq() {
+    public String getMaxFreq() {
 
         String cpuMaxFreq = "0";
         RandomAccessFile reader;
@@ -87,5 +95,17 @@ public class DeviceProps
         Log.i("asdf", result);
         //return result;
     }
+
+    public String getGPUinfo() {
+        // We need a GL context to examine, which means we need an EGL surface.  Create a 1x1
+        // pbuffer.
+        EglCore eglCore = new EglCore(null, EglCore.FLAG_TRY_GLES3);
+        OffscreenSurface surface = new OffscreenSurface(eglCore, 1, 1);
+        surface.makeCurrent();
+
+
+        return GLES20.glGetString(GLES20.GL_RENDERER);
+    }
+
 
 }
