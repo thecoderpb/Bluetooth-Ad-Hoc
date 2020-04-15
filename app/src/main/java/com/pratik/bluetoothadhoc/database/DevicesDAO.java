@@ -28,6 +28,9 @@ public interface DevicesDAO {
     @Query("SELECT * FROM DEVICES WHERE cpuCore >=:cpuCore AND cpuFreq >=:cpuFreq")
     LiveData<List<Devices>> getDeviceWithPCond(int cpuCore,long cpuFreq);
 
+    @Query("SELECT deviceName FROM DEVICES ORDER BY cpuCore DESC, cpuFreq DESC")
+    LiveData<List<String>> getRankedDevices();
+
     @Query("SELECT * FROM DEVICES WHERE cpuCore <=:cpuCore AND cpuFreq <=:cpuFreq")
     LiveData<List<Devices>> getDevicesWithNCond(int cpuCore,long cpuFreq);
 

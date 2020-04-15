@@ -15,6 +15,7 @@ public class DevicesViewModel extends AndroidViewModel {
 
     private DevicesRepository repository;
     private LiveData<List<Devices>> devices,devicesWithNCond,devicesWithPCond;
+    private LiveData<List<String>> rankedDevices;
     private boolean isDeviceInDB;
 
     public DevicesViewModel(@NonNull Application application) {
@@ -22,11 +23,13 @@ public class DevicesViewModel extends AndroidViewModel {
 
         repository = new DevicesRepository(application);
         devices = repository.getAllDevices();
+        rankedDevices = repository.getRankedDevices();
     }
 
     public LiveData<List<Devices>> getAllDevices(){
         return devices;
     }
+    public LiveData<List<String>> getRankedDevices(){ return rankedDevices; }
 
     public LiveData<List<Devices>> getDevicesWithNCond(int core,long cpuFreq) {
         devicesWithNCond = repository.getAllDevWithNCond(core,cpuFreq);

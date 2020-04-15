@@ -2,6 +2,7 @@ package com.pratik.bluetoothadhoc;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -24,9 +25,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProviders;
+
+import com.pratik.bluetoothadhoc.database.Devices;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,7 +44,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     static int ConnectedDeviceCount = 0;
     public static Handler handler;
-    private String mGlInfo;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -55,12 +60,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     Map<String, String> masterProp;
 
+    static Map<String, BluetoothSocket> remoteDeviceId = new HashMap<>();
+
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
     private static Button btButton;
     static int btnFlag = 0;
     private DeviceProps deviceProps;
-
+    private DevicesViewModel viewModel;
     ArrayList<String> pairedList, deviceReadyList;
 
     @Override
@@ -90,7 +97,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         deviceProps = new DeviceProps();
         myDeviceProp();
-        mGlInfo = gatherGlInfo();
+        String mGlInfo = gatherGlInfo();
+        Log.i("asdf", mGlInfo);
+
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
 
@@ -98,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         /*TextView tv = findViewById(R.id.sample_text);
         tv.setText(stringFromJNI());*/
         //readCPUinfo();
+        viewModel = ViewModelProviders.of(MainActivity.this).get(DevicesViewModel.class);
         findViewById(R.id.bt_btn).setOnClickListener(this);
 
 
@@ -123,7 +133,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private String gatherGlInfo() {
 
-        return "";
+        return deviceProps.getGPUinfo();
 
     }
 
@@ -139,22 +149,42 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     String strs = new String(message);
                     //Log.i("asdf",str);
 
-                    String[] strings = new String[4];
+                    final String[] strings = new String[4];
                     String[] split = strs.split("\0"); //entire msg
-                    Log.i("asdf",split[0]);
+                    Log.i("asdf", split[0]);
                     //TODO: Fix the substring issue
-                    strings[0] = split[0].substring(0, 7); // freq
-                    strings[1] = split[0].substring(8, 9); // core
-                    strings[2] = split[0].substring(10); //gpu and device name
-                    if(strings[2].startsWith("Adreno",11)){
-                        strings[3] = strings[2].substring(10,20) ;
-                        strings[2] = strings[2].substring(20);
+                    if (strings[0].startsWith("Rank")) {
+                        String rank = strings[0].substring(5);
+                        displayRank(rank);
+
+                    } else {
+                        strings[0] = split[0].substring(0, 7); // freq
+                        strings[1] = split[0].substring(8, 9); // core
+                        strings[2] = split[0].substring(10); //gpu and device name
+                        if (strings[2].startsWith("Adreno", 11)) {
+                            strings[3] = strings[2].substring(10, 20);
+                            strings[2] = strings[2].substring(20);
+                        }
+
+                        Log.i("asdf", "device freq:" + strings[0]);
+                        Log.i("asdf", "device max cores:" + strings[1]);
+                        Log.i("asdf", "device name:" + strings[2]);
+                        try {
+                            addDeviceToDB(Long.parseLong(strings[0]), Integer.parseInt(strings[1]), strings[2]);
+                            new Handler().postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    rankDevice(strings[0], strings[1], strings[3], strings[2]);
+                                }
+                            }, 1000);
+
+                        } catch (Exception e) {
+                            e.printStackTrace();
+
+                        }
                     }
 
-                    Log.i("asdf", "device freq:" + strings[0]);
-                    Log.i("asdf", "device max cores:" + strings[1]);
-                    Log.i("asdf", "device name:" + strings[2]);
-                    rankDevice(strings[0], strings[1], strings[3], strings[2]);
+
                 } else if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_WRITE) {
                     displayAlert();
                 }
@@ -163,6 +193,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         };
 
+
+    }
+
+    private void displayRank(String rank) {
+
+        Toast.makeText(this, "Device rank is" + rank, Toast.LENGTH_SHORT).show();
+    }
+
+    private void addDeviceToDB(final long cpuFreq, final int cpuCores, final String deviceName) {
+
+
+        Devices devices = new Devices(deviceName, cpuFreq, cpuCores);
+
+        viewModel.insert(devices);
 
     }
 
@@ -179,7 +223,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-    private void rankDevice(String cpuFreq, String cpuCore, String gpu, String deviceName) {
+    private void rankDevice(String cpuFreq, String cpuCore, String gpu, final String deviceName) {
 
         String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores:" + cpuCore + "\nDevice gpu : " + gpu;
         new AlertDialog.Builder(this)
@@ -188,6 +232,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .setPositiveButton("Ok", null)
                 .show();
 
+        viewModel.getRankedDevices().observe(this, new Observer<List<String>>() {
+            @Override
+            public void onChanged(final List<String> deviceName) {
+                //send updated ranks to devices
+                if (remoteDeviceId.size() != 0) {
+                    for (int i = 0; i < deviceName.size(); i++) {
+                        if (remoteDeviceId.containsKey(deviceName.get(i))) {
+                            BluetoothSocket socket = remoteDeviceId.get(deviceName.get(i));
+                            assert socket != null;
+                            if (socket.isConnected()) {
+                                BluetoothMessageService service = new BluetoothMessageService();
+                                service.connectService(socket);
+                                service.sendRanking(i);
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
     }
 
@@ -224,7 +287,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 thread.start();
             }
         }
-
 
     }
 

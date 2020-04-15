@@ -38,16 +38,6 @@ public class BluetoothMessageService {
         thread.start();
     }
 
-    private void rankDevice(String cpuFreq, String cores, String deviceName) {
-
-        int size = deviceRanking.size();
-        
-        Map<String,Integer> sorted = new HashMap<>();
-        sorted = sortByValue(deviceRanking);
-
-
-
-    }
 
     private  Map<String, Integer> sortByValue(Map<String, Integer> hm)
     {
@@ -78,6 +68,12 @@ public class BluetoothMessageService {
         String msg = props.getMaxFreq() + " " + props.getNumberOfCores() + " " + props.getGPUinfo() + " "+ deviceName  +"\0";
         byte[] message = msg.getBytes();
         thread.write(message, msg);
+    }
+
+    public void sendRanking(int rank){
+        String msg = "Rank " + rank +"\0";
+        byte[] message = msg.getBytes();
+        thread.write(message,msg);
     }
 
     public interface MessageConstants {

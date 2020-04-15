@@ -104,7 +104,7 @@ public class DeviceProps {
         surface.makeCurrent();
 
 
-        return GLES20.glGetString(GLES20.GL_RENDERER);
+        return GLES20.glGetString(GLES20.GL_EXTENSIONS);
     }
 
 

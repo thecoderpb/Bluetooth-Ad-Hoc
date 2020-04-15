@@ -11,6 +11,7 @@ public class DevicesRepository {
 
     private DevicesDAO devicesDAO;
     private LiveData<List<Devices>> allDevices, allDevWithNCond, allDevWithPCond;
+    private LiveData<List<String>> rankedDevices;
     private Application application;
 
     public DevicesRepository(Application application) {
@@ -21,6 +22,7 @@ public class DevicesRepository {
         devicesDAO = db.devicesDAO();
 
         allDevices = devicesDAO.getAllDeviceProps();
+        rankedDevices = devicesDAO.getRankedDevices();
 
     }
 
@@ -71,6 +73,7 @@ public class DevicesRepository {
     public LiveData<List<Devices>> getAllDevices() {
         return allDevices;
     }
+    public LiveData<List<String>> getRankedDevices() { return rankedDevices; }
 
     public LiveData<List<Devices>> getAllDevWithNCond(final int core, final long cpuFreq) {
         DevicesDB db = DevicesDB.getInstance(application);
