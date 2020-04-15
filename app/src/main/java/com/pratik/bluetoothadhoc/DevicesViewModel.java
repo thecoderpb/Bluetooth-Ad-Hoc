@@ -55,4 +55,7 @@ public class DevicesViewModel extends AndroidViewModel {
     public void delete(Devices devices){
         repository.delete(devices);
     }
+    public void nukeTable(){
+        repository.deleteTable();
+    }
 }

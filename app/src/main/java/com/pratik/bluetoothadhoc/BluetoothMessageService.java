@@ -2,12 +2,8 @@ package com.pratik.bluetoothadhoc;
 
 import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-
-import androidx.annotation.NonNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +18,7 @@ import java.util.Map;
 
 
 import static com.pratik.bluetoothadhoc.MainActivity.handler;
+import static com.pratik.bluetoothadhoc.MainActivity.isShowAlert;
 
 public class BluetoothMessageService {
     private static final String TAG = "asdf";
@@ -65,14 +62,16 @@ public class BluetoothMessageService {
     public void sendMessage(String deviceName,String remoteDeviceName) {
         BluetoothMessageService.remoteDeviceName = remoteDeviceName;
         DeviceProps props = new DeviceProps();
-        String msg = props.getMaxFreq() + " " + props.getNumberOfCores() + " " + props.getGPUinfo() + " "+ deviceName  +"\0";
+        String msg = props.getMaxFreq() + " " + props.getNumberOfCores() + " " + deviceName  +"\0";
         byte[] message = msg.getBytes();
+        isShowAlert = true;
         thread.write(message, msg);
     }
 
     public void sendRanking(int rank){
         String msg = "Rank " + rank +"\0";
         byte[] message = msg.getBytes();
+        isShowAlert = false;
         thread.write(message,msg);
     }
 

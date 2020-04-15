@@ -4,9 +4,8 @@
 extern "C" JNIEXPORT jstring
 
 JNICALL
-Java_com_pratik_bluetoothadhoc_MainActivity_stringFromJNI(
+Java_com_pratik_bluetoothadhoc_MainActivity_taskJNI(
         JNIEnv *env,
-        jobject /* this */) {
-    std::string hello = "Hello World";
-    return env->NewStringUTF(hello.c_str());
+        jobject self, jobject remote_device_id) {
+
 }

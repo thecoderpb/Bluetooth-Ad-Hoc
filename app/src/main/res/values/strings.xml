@@ -22,5 +22,6 @@
     <string name="devices_ready_for_task">Devices Ready For Task</string>
     <string name="paired_devices">Paired Devices</string>
     <string name="enable_bluetooth">Enable Bluetooth</string>
+    <string name="devices_ready">Devices Ready</string>
 
 </resources>

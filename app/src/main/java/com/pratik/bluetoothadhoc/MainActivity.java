@@ -13,6 +13,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -20,6 +22,7 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Toolbar;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -44,6 +47,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     static int ConnectedDeviceCount = 0;
     public static Handler handler;
+    public static boolean isShowAlert = true;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -65,17 +69,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
     private static Button btButton;
+    ArrayAdapter<String> deviceReadyListAdapter;
     static int btnFlag = 0;
     private DeviceProps deviceProps;
     private DevicesViewModel viewModel;
     ArrayList<String> pairedList, deviceReadyList;
+    ListView deviceReadyListView;
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
         unregisterReceiver(receiver);
-
+        viewModel.nukeTable();
     }
 
     @Override
@@ -89,26 +95,29 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             finish();
         }
 
+
         masterProp = new HashMap<>();
         pairedList = new ArrayList<>();
         deviceReadyList = new ArrayList<>();
+
+        deviceReadyListView = findViewById(R.id.task_ready_lv);
 
         btButton = findViewById(R.id.bt_btn);
 
         deviceProps = new DeviceProps();
         myDeviceProp();
         String mGlInfo = gatherGlInfo();
-        Log.i("asdf", mGlInfo);
 
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
 
         // Example of a call to a native method
-        /*TextView tv = findViewById(R.id.sample_text);
-        tv.setText(stringFromJNI());*/
+
         //readCPUinfo();
         viewModel = ViewModelProviders.of(MainActivity.this).get(DevicesViewModel.class);
+        viewModel.nukeTable();
         findViewById(R.id.bt_btn).setOnClickListener(this);
+        deviceReadyListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceReadyList);
 
 
         handleListViews();
@@ -143,24 +152,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void handleMessage(@NonNull Message msg) {
+
+
                 if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_READ) {
+
                     Object obj = msg.obj;
                     byte[] message = (byte[]) obj;
                     String strs = new String(message);
+
                     //Log.i("asdf",str);
 
                     final String[] strings = new String[4];
-                    String[] split = strs.split("\0"); //entire msg
-                    Log.i("asdf", split[0]);
+                    String[] mainMsg = strs.split("\0"); //entire msg
+                    Log.i("asdf", mainMsg[0]);
                     //TODO: Fix the substring issue
-                    if (strings[0].startsWith("Rank")) {
-                        String rank = strings[0].substring(5);
+                    if (mainMsg[0].startsWith("Rank")) {
+                        String rank = mainMsg[0].substring(5);
                         displayRank(rank);
 
                     } else {
-                        strings[0] = split[0].substring(0, 7); // freq
-                        strings[1] = split[0].substring(8, 9); // core
-                        strings[2] = split[0].substring(10); //gpu and device name
+                        strings[0] = mainMsg[0].substring(0, 7); // freq
+                        strings[1] = mainMsg[0].substring(8, 9); // core
+                        strings[2] = mainMsg[0].substring(10); //gpu and device name
                         if (strings[2].startsWith("Adreno", 11)) {
                             strings[3] = strings[2].substring(10, 20);
                             strings[2] = strings[2].substring(20);
@@ -186,8 +199,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
                 } else if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_WRITE) {
-                    displayAlert();
+                    if (isShowAlert)
+                        displayAlert();
                 }
+
+                deviceReadyView();
 
             }
 
@@ -196,17 +212,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+
     private void displayRank(String rank) {
 
         Toast.makeText(this, "Device rank is" + rank, Toast.LENGTH_SHORT).show();
+        int realRank = Integer.parseInt(rank) + 1;
+        Log.i("asdf", "device rank is " + realRank);
     }
 
     private void addDeviceToDB(final long cpuFreq, final int cpuCores, final String deviceName) {
 
 
-        Devices devices = new Devices(deviceName, cpuFreq, cpuCores);
+        Devices addDevice = new Devices(deviceName, cpuFreq, cpuCores);
+        //if (!viewModel.isDeviceInDB(deviceName))
+        viewModel.insert(addDevice);
 
-        viewModel.insert(devices);
 
     }
 
@@ -220,12 +240,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .setPositiveButton("OK", null)
                 .show();
 
+        deviceReadyListView.setVisibility(View.INVISIBLE);
+
 
     }
 
     private void rankDevice(String cpuFreq, String cpuCore, String gpu, final String deviceName) {
 
-        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores:" + cpuCore + "\nDevice gpu : " + gpu;
+        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores:" + cpuCore;
         new AlertDialog.Builder(this)
                 .setTitle("Device Props obtained")
                 .setMessage(text)
@@ -257,7 +279,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void handleListViews() {
 
 
-        ListView deviceReadyListView = findViewById(R.id.task_ready_lv);
         ListView pairedListView = findViewById(R.id.pair_lv);
 
         Set<String> devices = getPairedDevices().keySet();
@@ -287,6 +308,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 thread.start();
             }
         }
+
+    }
+
+    public void deviceReadyView() {
+
+        deviceReadyListView.setVisibility(View.VISIBLE);
+        deviceReadyList.clear();
+        deviceReadyList.addAll(remoteDeviceId.keySet());
+        deviceReadyListView.setAdapter(deviceReadyListAdapter);
 
     }
 
@@ -333,9 +363,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     }
-
-
-    public native String stringFromJNI();
 
 
     public void enableBluetooth() {
@@ -412,4 +439,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         }
     }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+
+        if (remoteDeviceId.size() == 0) {
+
+            Toast.makeText(this, "No devices ready to execute task", Toast.LENGTH_SHORT).show();
+
+        } else
+            switch (item.getItemId()) {
+                case R.id.menu_task1:
+                    break;
+                case R.id.menu_task2:
+                    break;
+                case R.id.menu_task3:
+                    break;
+            }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+
+    public native void taskJNI(Map remoteDeviceId);
+
 }
