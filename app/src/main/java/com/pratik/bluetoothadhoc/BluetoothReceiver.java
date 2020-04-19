@@ -6,12 +6,19 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static com.pratik.bluetoothadhoc.MainActivity.btnFlag;
+import static com.pratik.bluetoothadhoc.MainActivity.faultTolerantAddresss;
+import static com.pratik.bluetoothadhoc.MainActivity.realRank;
 import static com.pratik.bluetoothadhoc.MainActivity.setButtonText;
 
 public class BluetoothReceiver extends BroadcastReceiver {
-
 
 
     @Override
@@ -30,9 +37,9 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
 
             if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-               btnFlag = 2;
-               setButtonText(btnFlag);
-            } else if(BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
+                btnFlag = 2;
+                setButtonText(btnFlag);
+            } else if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
                 btnFlag = 1;
                 setButtonText(btnFlag);
             }
@@ -47,7 +54,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 setButtonText(btnFlag);
                 Log.i("asdf", "bt on");
                 ManageUUID manageUUID = new ManageUUID();
-                for(int i=0;i<manageUUID.getDummyUuids().size();i++){
+                for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
                     BtAcceptThread thread = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
                     thread.start();
                 }
@@ -58,7 +65,34 @@ public class BluetoothReceiver extends BroadcastReceiver {
                 Log.i("asdf", "bt off");
             }
 
+        } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+
+            PrefManager prefs = new PrefManager(context);
+            if(!prefs.isMyDeviceMaster())
+                Toast.makeText(context, "Device disconnected. Reconnecting", Toast.LENGTH_SHORT).show();
+            Log.i("asdf", "Device disconnected. Reconnecting");
+            if (realRank == 1) {
+
+                List<String> deviceAddr = cleanFTA(faultTolerantAddresss);
+                for (String addr : deviceAddr) {
+
+                    if(!addr.equals("")){
+                        Log.i("asdf","Device disconnected | addr to connect next " + addr );
+
+                        BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(addr);
+                        Log.i("asdf", "new master connecting");
+                        BtConnectThread thread = new BtConnectThread(device);
+                        thread.start();
+                    }
+
+                }
+            }
         }
 
+    }
+
+    private List<String> cleanFTA(List<String> faultTolerantAddresss) {
+        Set<String> set = new HashSet<>(faultTolerantAddresss);
+        return new ArrayList<>(set);
     }
 }

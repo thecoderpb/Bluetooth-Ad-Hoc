@@ -33,15 +33,15 @@ import androidx.lifecycle.ViewModelProviders;
 
 import com.pratik.bluetoothadhoc.database.Devices;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.pratik.bluetoothadhoc.BluetoothMessageService.remoteDeviceAddress;
 import static com.pratik.bluetoothadhoc.BluetoothMessageService.remoteDeviceName;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -69,6 +69,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     static Map<String, BluetoothSocket> remoteDeviceIdList = new HashMap<>();
     static List<BluetoothDevice> remoteBtDeviceList = new ArrayList<>();
+    static List<String> faultTolerantAddresss;
+    static int realRank;
 
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
@@ -80,6 +82,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView rankText;
     ArrayList<String> pairedList, deviceReadyList;
     ListView deviceReadyListView;
+    PrefManager prefs;
+
 
     @Override
     protected void onDestroy() {
@@ -101,9 +105,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
 
+
+
         masterProp = new HashMap<>();
         pairedList = new ArrayList<>();
         deviceReadyList = new ArrayList<>();
+        prefs = new PrefManager(this);
 
         deviceReadyListView = findViewById(R.id.task_ready_lv);
 
@@ -133,6 +140,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         filter.addAction(BluetoothDevice.ACTION_FOUND);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
+        filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         registerReceiver(receiver, filter);
         if (BluetoothAdapter.getDefaultAdapter().isEnabled()) {
             btnFlag = 1;
@@ -145,7 +153,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-         rankText = findViewById(R.id.task_ready_tv);
+        rankText = findViewById(R.id.task_ready_tv);
 
     }
 
@@ -208,9 +216,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         }
 
 
-                    }else {
-                        List<BluetoothDevice> nextMasterConnectDeviceList = new ArrayList<>();
-                        Log.i("asdf", "received device list next master node: " + mainMsg[0]);
+                    } else if (mainMsg[0].startsWith("\t")) {
+
+                        Log.i("asdf", mainMsg[0]);
+                        String[] strss = mainMsg[0].split("\t");
+                        faultTolerantAddresss = new ArrayList<>(Arrays.asList(strss));
+                        for (String addr : strss) {
+                            if (!addr.equals("")) {
+                                faultTolerantAddresss.add(addr);
+                                Log.i("asdf","fta : "+addr);
+                            }
+                        }
+
+                        if (!prefs.getMasterMacAddress().equals(""))
+                            faultTolerantAddresss.add(prefs.getMasterMacAddress());
+                        Log.i("asdff", faultTolerantAddresss.toString());
+
+
                     }
 
 
@@ -229,10 +251,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
+
+
     @SuppressLint("SetTextI18n")
     private void displayRank(String rank) {
 
-        int realRank = Integer.parseInt(rank) + 1;
+
+        realRank = Integer.parseInt(rank) + 1;
         Log.i("asdf", "device rank is " + realRank);
         Toast.makeText(this, "Device Rank is " + realRank, Toast.LENGTH_SHORT).show();
         rankText.setText("This device is now slave to " + remoteDeviceName + " | Rank is " + realRank);
@@ -255,6 +280,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         String str = "Slave (this device " + Build.MODEL + ") connected to master " + remoteDeviceName;
 
+        prefs.setMasterMacAddress(remoteDeviceAddress);
         new AlertDialog.Builder(this)
                 .setTitle("Connected to master")
                 .setMessage(str)
@@ -277,10 +303,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .show();
 
         viewModel.getRankedDevices().observe(this, new Observer<List<String>>() {
+            @SuppressLint("HardwareIds")
             @Override
             public void onChanged(final List<String> deviceName) {
                 //send updated ranks to devices
-                Log.i("asdf","sending updated ranks to device(s)");
+                Log.i("asdf", "sending updated ranks to device(s)");
                 if (remoteDeviceIdList.size() != 0) {
                     for (int i = 0; i < deviceName.size(); i++) {
                         if (remoteDeviceIdList.containsKey(deviceName.get(i))) {
@@ -291,19 +318,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                 service.connectService(socket);
                                 service.sendRanking(i);
 
-                                Log.i("asdf","Sending fault tolerance data");
+                                Log.i("asdf", "Sending fault tolerance data");
                                 //Send Fault tolerance data to next potential master
                                 if (i == 0) {
 
-                                    Log.i("asdf","Sending fault tolerance data");
+                                    Log.i("asdf", "Sending fault tolerance data");
                                     BluetoothMessageService service2 = new BluetoothMessageService();
                                     service2.connectService(socket);
 
-                                    try {
-                                        service2.sendData(remoteBtDeviceList);
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
+                                    List<BluetoothSocket> list = new ArrayList<>(remoteDeviceIdList.values());
+                                    List<String> addr = new ArrayList<>();
+                                    for (BluetoothSocket soc : list) {
+                                        if (!socket.getRemoteDevice().getAddress().equals(soc.getRemoteDevice().getAddress()))
+                                            addr.add(soc.getRemoteDevice().getAddress());
                                     }
+                                    service2.sendData(addr);
 
                                 }
 
@@ -332,10 +361,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         pairedListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
                 Log.i("asdf", pairedList.get(position));
                 BluetoothDevice device = getPairedBtDevices(pairedList.get(position));
                 Log.i("asdf", "Pairing");
                 if (device != null && BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
+                    Toast.makeText(MainActivity.this, "Connecting", Toast.LENGTH_SHORT).show();
                     BtConnectThread thread = new BtConnectThread(device);
                     thread.start();
                 }

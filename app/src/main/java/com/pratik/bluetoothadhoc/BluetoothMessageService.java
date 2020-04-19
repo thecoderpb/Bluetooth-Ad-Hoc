@@ -1,5 +1,6 @@
 package com.pratik.bluetoothadhoc;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
@@ -9,10 +10,13 @@ import android.util.Log;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 import static com.pratik.bluetoothadhoc.MainActivity.handler;
@@ -29,7 +34,7 @@ public class BluetoothMessageService {
     private static final String TAG = "asdf";
      // handler that gets info from Bluetooth service
     private ConnectedThread thread;
-    static String remoteDeviceName;
+    static String remoteDeviceName,remoteDeviceAddress;
 
     public static Map<String, Integer> deviceRanking = new HashMap<>();
 
@@ -41,31 +46,9 @@ public class BluetoothMessageService {
     }
 
 
-    private  Map<String, Integer> sortByValue(Map<String, Integer> hm)
-    {
-        // Create a list from elements of HashMap
-        List<Map.Entry<String, Integer> > list =
-                new LinkedList<Map.Entry<String, Integer> >(hm.entrySet());
-
-        // Sort the list
-        Collections.sort(list, new Comparator<Map.Entry<String, Integer> >() {
-            public int compare(Map.Entry<String, Integer> o1,
-                               Map.Entry<String, Integer> o2)
-            {
-                return (o1.getValue()).compareTo(o2.getValue());
-            }
-        });
-
-        // put data from sorted list to hashmap
-        Map<String, Integer> temp = new LinkedHashMap<String, Integer>();
-        for (Map.Entry<String, Integer> aa : list) {
-            temp.put(aa.getKey(), aa.getValue());
-        }
-        return temp;
-    }
-
-    public void sendMessage(String deviceName,String remoteDeviceName) {
+    public void sendMessage(String deviceName,String remoteDeviceName,String remoteDeviceAddress) {
         BluetoothMessageService.remoteDeviceName = remoteDeviceName;
+        BluetoothMessageService.remoteDeviceAddress = remoteDeviceAddress;
         DeviceProps props = new DeviceProps();
         String msg = "\f" + props.getMaxFreq() + " " + props.getNumberOfCores() + " " + deviceName  +"\0";
         byte[] message = msg.getBytes();
@@ -80,21 +63,31 @@ public class BluetoothMessageService {
         thread.write(message,msg);
     }
 
-    public void sendData(List<BluetoothDevice> btDeviceList) throws IOException {
+    public void sendData(List<String> macAddress){
 
-        /*String msg = "\t" + btDeviceList.toString() + "\0";
-        byte[] message = msg.getBytes();
-        isShowAlert = false;
-        Log.i("asdf","Host msg write" + msg);*/
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bos);
-        oos.writeObject(btDeviceList);
-        byte[] message = bos.toByteArray();
-
-
-        thread.write(message,btDeviceList.toString());
+        String message = "\t";
+        for( String str : macAddress){
+             message = message + str +"\t";
+        }
+        message+="\0";
+        byte[] msg = message.getBytes();
+        thread.write(msg,message);
         Log.i("asdf","next potential ranked device details sent");
+    }
+
+
+    private List<String> getPairedDevices() {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        Set<BluetoothDevice> pairedDevices = adapter.getBondedDevices();
+        List<String> macAddress = new ArrayList<>();
+        if (pairedDevices.size() > 0) {
+            // There are paired devices. Get the name and address of each paired device.
+            for (BluetoothDevice device : pairedDevices) {
+               macAddress.add(device.getAddress());
+            }
+        }
+        return macAddress;
+
     }
 
     public interface MessageConstants {
