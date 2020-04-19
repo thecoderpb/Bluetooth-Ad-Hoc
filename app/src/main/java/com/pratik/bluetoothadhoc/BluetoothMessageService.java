@@ -1,12 +1,17 @@
 package com.pratik.bluetoothadhoc;
 
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
 import android.os.Message;
 import android.util.Log;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.Collections;
 import java.util.Comparator;
@@ -62,17 +67,34 @@ public class BluetoothMessageService {
     public void sendMessage(String deviceName,String remoteDeviceName) {
         BluetoothMessageService.remoteDeviceName = remoteDeviceName;
         DeviceProps props = new DeviceProps();
-        String msg = props.getMaxFreq() + " " + props.getNumberOfCores() + " " + deviceName  +"\0";
+        String msg = "\f" + props.getMaxFreq() + " " + props.getNumberOfCores() + " " + deviceName  +"\0";
         byte[] message = msg.getBytes();
         isShowAlert = true;
         thread.write(message, msg);
     }
 
     public void sendRanking(int rank){
-        String msg = "Rank " + rank +"\0";
+        String msg = "\rRank " + rank +"\0";
         byte[] message = msg.getBytes();
         isShowAlert = false;
         thread.write(message,msg);
+    }
+
+    public void sendData(List<BluetoothDevice> btDeviceList) throws IOException {
+
+        /*String msg = "\t" + btDeviceList.toString() + "\0";
+        byte[] message = msg.getBytes();
+        isShowAlert = false;
+        Log.i("asdf","Host msg write" + msg);*/
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+        oos.writeObject(btDeviceList);
+        byte[] message = bos.toByteArray();
+
+
+        thread.write(message,btDeviceList.toString());
+        Log.i("asdf","next potential ranked device details sent");
     }
 
     public interface MessageConstants {
@@ -112,7 +134,7 @@ public class BluetoothMessageService {
         }
 
         public void run() {
-            mmBuffer = new byte[1024];
+            mmBuffer = new byte[2048];
             int numBytes; // bytes returned from read()
 
             // Keep listening to the InputStream until an exception occurs.

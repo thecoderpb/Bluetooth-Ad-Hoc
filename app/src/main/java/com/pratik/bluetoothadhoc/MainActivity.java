@@ -1,5 +1,6 @@
 package com.pratik.bluetoothadhoc;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
@@ -22,7 +23,6 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.Toolbar;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -33,6 +33,9 @@ import androidx.lifecycle.ViewModelProviders;
 
 import com.pratik.bluetoothadhoc.database.Devices;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -64,7 +67,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     Map<String, String> masterProp;
 
-    static Map<String, BluetoothSocket> remoteDeviceId = new HashMap<>();
+    static Map<String, BluetoothSocket> remoteDeviceIdList = new HashMap<>();
+    static List<BluetoothDevice> remoteBtDeviceList = new ArrayList<>();
 
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
@@ -73,6 +77,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     static int btnFlag = 0;
     private DeviceProps deviceProps;
     private DevicesViewModel viewModel;
+    private TextView rankText;
     ArrayList<String> pairedList, deviceReadyList;
     ListView deviceReadyListView;
 
@@ -135,8 +140,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
 
-        manageHandler();
-        final TextView rankText = findViewById(R.id.task_ready_tv);
+        try {
+            manageHandler();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+         rankText = findViewById(R.id.task_ready_tv);
 
     }
 
@@ -146,7 +155,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-    private void manageHandler() {
+    private void manageHandler() throws IOException, ClassNotFoundException {
 
         handler = new Handler(Looper.getMainLooper()) {
 
@@ -164,24 +173,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                     final String[] strings = new String[4];
                     String[] mainMsg = strs.split("\0"); //entire msg
-                    Log.i("asdf", mainMsg[0]);
+                    Log.i("asdf", "Entire message received from device -->" + mainMsg[0]);
                     //TODO: Fix the substring issue
-                    if (mainMsg[0].startsWith("Rank")) {
-                        String rank = mainMsg[0].substring(5);
+                    if (mainMsg[0].startsWith("\r")) {
+                        String rank = mainMsg[0].substring(6);
                         displayRank(rank);
 
-                    } else {
-                        strings[0] = mainMsg[0].substring(0, 7); // freq
-                        strings[1] = mainMsg[0].substring(8, 9); // core
-                        strings[2] = mainMsg[0].substring(10); //gpu and device name
-                        if (strings[2].startsWith("Adreno", 11)) {
-                            strings[3] = strings[2].substring(10, 20);
-                            strings[2] = strings[2].substring(20);
+                    } else if (mainMsg[0].startsWith("\f")) {
+                        strings[0] = mainMsg[0].substring(1, 8); // freq
+                        strings[1] = mainMsg[0].substring(9, 10); // core
+                        strings[2] = mainMsg[0].substring(11); //gpu and device name
+                        if (strings[2].startsWith("Adreno", 12)) {
+                            strings[3] = strings[2].substring(11, 21);
+                            strings[2] = strings[2].substring(21);
+
+                            Log.i("asdf", "device freq:" + strings[0]);
+                            Log.i("asdf", "device max cores:" + strings[1]);
+                            Log.i("asdf", "device name:" + strings[2]);
+
                         }
 
-                        Log.i("asdf", "device freq:" + strings[0]);
-                        Log.i("asdf", "device max cores:" + strings[1]);
-                        Log.i("asdf", "device name:" + strings[2]);
                         try {
                             addDeviceToDB(Long.parseLong(strings[0]), Integer.parseInt(strings[1]), strings[2]);
                             new Handler().postDelayed(new Runnable() {
@@ -189,12 +200,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                 public void run() {
                                     rankDevice(strings[0], strings[1], strings[3], strings[2]);
                                 }
-                            }, 1000);
+                            }, 500);
 
                         } catch (Exception e) {
                             e.printStackTrace();
 
                         }
+
+
+                    }else {
+                        List<BluetoothDevice> nextMasterConnectDeviceList = new ArrayList<>();
+                        Log.i("asdf", "received device list next master node: " + mainMsg[0]);
                     }
 
 
@@ -213,11 +229,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
+    @SuppressLint("SetTextI18n")
     private void displayRank(String rank) {
 
-        Toast.makeText(this, "Device rank is" + rank, Toast.LENGTH_SHORT).show();
         int realRank = Integer.parseInt(rank) + 1;
         Log.i("asdf", "device rank is " + realRank);
+        Toast.makeText(this, "Device Rank is " + realRank, Toast.LENGTH_SHORT).show();
+        rankText.setText("This device is now slave to " + remoteDeviceName + " | Rank is " + realRank);
+
+
     }
 
     private void addDeviceToDB(final long cpuFreq, final int cpuCores, final String deviceName) {
@@ -230,6 +250,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    //Slave Node
     private void displayAlert() {
 
         String str = "Slave (this device " + Build.MODEL + ") connected to master " + remoteDeviceName;
@@ -245,6 +266,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    //Master Node
     private void rankDevice(String cpuFreq, String cpuCore, String gpu, final String deviceName) {
 
         String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores:" + cpuCore;
@@ -258,15 +280,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onChanged(final List<String> deviceName) {
                 //send updated ranks to devices
-                if (remoteDeviceId.size() != 0) {
+                Log.i("asdf","sending updated ranks to device(s)");
+                if (remoteDeviceIdList.size() != 0) {
                     for (int i = 0; i < deviceName.size(); i++) {
-                        if (remoteDeviceId.containsKey(deviceName.get(i))) {
-                            BluetoothSocket socket = remoteDeviceId.get(deviceName.get(i));
+                        if (remoteDeviceIdList.containsKey(deviceName.get(i))) {
+                            BluetoothSocket socket = remoteDeviceIdList.get(deviceName.get(i));
                             assert socket != null;
                             if (socket.isConnected()) {
                                 BluetoothMessageService service = new BluetoothMessageService();
                                 service.connectService(socket);
                                 service.sendRanking(i);
+
+                                Log.i("asdf","Sending fault tolerance data");
+                                //Send Fault tolerance data to next potential master
+                                if (i == 0) {
+
+                                    Log.i("asdf","Sending fault tolerance data");
+                                    BluetoothMessageService service2 = new BluetoothMessageService();
+                                    service2.connectService(socket);
+
+                                    try {
+                                        service2.sendData(remoteBtDeviceList);
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+
+                                }
+
+
                             }
                         }
                     }
@@ -315,7 +356,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         deviceReadyListView.setVisibility(View.VISIBLE);
         deviceReadyList.clear();
-        deviceReadyList.addAll(remoteDeviceId.keySet());
+        deviceReadyList.addAll(remoteDeviceIdList.keySet());
         deviceReadyListView.setAdapter(deviceReadyListAdapter);
 
     }
@@ -449,7 +490,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
-        if (remoteDeviceId.size() == 0) {
+        if (remoteDeviceIdList.size() == 0) {
 
             Toast.makeText(this, "No devices ready to execute task", Toast.LENGTH_SHORT).show();
 

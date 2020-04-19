@@ -9,7 +9,8 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static android.content.ContentValues.TAG;
-import static com.pratik.bluetoothadhoc.MainActivity.remoteDeviceId;
+import static com.pratik.bluetoothadhoc.MainActivity.remoteBtDeviceList;
+import static com.pratik.bluetoothadhoc.MainActivity.remoteDeviceIdList;
 
 
 public class BtConnectThread extends Thread {
@@ -52,6 +53,7 @@ public class BtConnectThread extends Thread {
             Log.i("asdf","connecting");
             mmSocket.connect();
             Log.i("asdf","connected");
+            remoteBtDeviceList.add(mmDevice);
         } catch (IOException connectException) {
             // Unable to connect; close the socket and return.
             try {
@@ -72,7 +74,7 @@ public class BtConnectThread extends Thread {
 
         BluetoothMessageService service = new BluetoothMessageService();
         service.connectService(mmSocket);
-        remoteDeviceId.put(mmSocket.getRemoteDevice().getName(),mmSocket);
+        remoteDeviceIdList.put(mmSocket.getRemoteDevice().getName(),mmSocket);
 
     }
 
