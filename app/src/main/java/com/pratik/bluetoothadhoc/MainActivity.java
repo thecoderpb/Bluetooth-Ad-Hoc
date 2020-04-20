@@ -77,13 +77,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
     private static Button btButton;
-    ArrayAdapter<String> deviceReadyListAdapter;
+    static ArrayAdapter<String> deviceReadyListAdapter;
     static int btnFlag = 0;
     private DeviceProps deviceProps;
     static DevicesViewModel viewModel;
     @SuppressLint("StaticFieldLeak")
     static TextView rankText;
-    ArrayList<String> pairedList, deviceReadyList;
+    static ArrayList<String> pairedList, deviceReadyList;
     ListView deviceReadyListView;
     PrefManager prefs;
     static BtAcceptThread[] thread;
@@ -131,7 +131,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         dialog = new AlertDialog.Builder(this)
                 .setTitle("Alert")
                 .setMessage("Bluetooth is turned Off")
-                .setPositiveButton("Idc",null);
+                .setPositiveButton("I don't care",null);
 
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         displayRank(rank);
 
                     } else if (mainMsg[0].startsWith("\f")) {
-                        strings[0] = mainMsg[0].substring(1, 8); // freq
+                       /* strings[0] = mainMsg[0].substring(1, 8); // freq
                         strings[1] = mainMsg[0].substring(9, 10); // core
                         strings[2] = mainMsg[0].substring(11); //gpu and device name
                         if (strings[2].startsWith("Adreno", 12)) {
@@ -214,7 +214,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             Log.i("asdf", "device max cores:" + strings[1]);
                             Log.i("asdf", "device name:" + strings[2]);
 
-                        }
+                        }*/
+                       String[] split = mainMsg[0].split("\b");
+                       strings[0] = split[0].substring(1); //freq
+                        strings[1] = split[1]; // core
+                        strings[2] = split[2]; // device name
+                        strings[3] = split[3]; // gpu
 
                         try {
                             addDeviceToDB(Long.parseLong(strings[0]), Integer.parseInt(strings[1]), strings[2]);
@@ -248,6 +253,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         Log.i("asdff", faultTolerantAddresss.toString());
 
 
+                    }else if (mainMsg[0].startsWith("\b")){
+                        displayBroadcastMsg();
                     }
 
 
@@ -265,7 +272,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    private void displayBroadcastMsg() {
 
+        new AlertDialog.Builder(this)
+                .setTitle("Broadcast Msg")
+                .setMessage("Message received from master")
+                .setPositiveButton("OK", null)
+                .show();
+
+    }
 
 
     @SuppressLint("SetTextI18n")
@@ -296,6 +311,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String str = "Slave (this device " + Build.MODEL + ") connected to master " + remoteDeviceName;
 
         prefs.setMasterMacAddress(remoteDeviceAddress);
+        prefs.setMyDeviceSlave(true);
         new AlertDialog.Builder(this)
                 .setTitle("Connected to master")
                 .setMessage(str)
@@ -310,7 +326,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //Master Node
     private void rankDevice(String cpuFreq, String cpuCore, String gpu, final String deviceName) {
 
-        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores:" + cpuCore;
+        prefs.setMyDeviceMaster(true);
+
+        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores : " + cpuCore +"\nGPU : " + gpu;
         new AlertDialog.Builder(this)
                 .setTitle("Device Props obtained")
                 .setMessage(text)
@@ -361,13 +379,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-    private void handleListViews() {
+    void handleListViews() {
 
 
         ListView pairedListView = findViewById(R.id.pair_lv);
 
         Set<String> devices = getPairedDevices().keySet();
         Map<String, String> pairedDevices = getPairedDevices();
+        pairedList.clear();
         pairedList.addAll(devices);
 
         pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
@@ -496,8 +515,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private Map<String, String> getPairedDevices() {
-        Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
+    static Map<String, String> getPairedDevices() {
+        Set<BluetoothDevice> pairedDevices = BluetoothAdapter.getDefaultAdapter().getBondedDevices();
         Map<String, String> btPairedList = new HashMap<>();
 
         if (pairedDevices.size() > 0) {
@@ -553,15 +572,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         } else
             switch (item.getItemId()) {
-                case R.id.menu_task1:
+                case R.id.menu_task1: broadcastMsg();
                     break;
-                case R.id.menu_task2:
+                case R.id.menu_task2: performAddingNumbers();
+                    Toast.makeText(this, "Task 2", Toast.LENGTH_SHORT).show();
                     break;
                 case R.id.menu_task3:
+                    Toast.makeText(this, "Task 3", Toast.LENGTH_SHORT).show();
                     break;
             }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void performAddingNumbers() {
+
+
+
+    }
+
+    private void broadcastMsg() {
+
+        if(prefs.isMyDeviceMaster()){
+            int size = remoteConnectDeviceIdList.size();
+            for(BluetoothSocket socket : remoteConnectDeviceIdList.values()){
+                BluetoothMessageService service = new BluetoothMessageService();
+                service.connectService(socket);
+                service.sendBroadcast();
+            }
+        }
+
+
     }
 
 

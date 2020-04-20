@@ -50,7 +50,7 @@ public class BluetoothMessageService {
         BluetoothMessageService.remoteDeviceName = remoteDeviceName;
         BluetoothMessageService.remoteDeviceAddress = remoteDeviceAddress;
         DeviceProps props = new DeviceProps();
-        String msg = "\f" + props.getMaxFreq() + " " + props.getNumberOfCores() + " " + deviceName  +"\0";
+        String msg = "\f" + props.getMaxFreq() + "\b" + props.getNumberOfCores() + "\b" + deviceName +"\b" + props.getGPUinfo() +"\0";
         byte[] message = msg.getBytes();
         isShowAlert = true;
         thread.write(message, msg);
@@ -87,6 +87,14 @@ public class BluetoothMessageService {
             }
         }
         return macAddress;
+
+    }
+
+    public void sendBroadcast() {
+
+        String message = "\bMessage received from master\0";
+        byte[] msg = message.getBytes();
+        thread.write(msg,message);
 
     }
 

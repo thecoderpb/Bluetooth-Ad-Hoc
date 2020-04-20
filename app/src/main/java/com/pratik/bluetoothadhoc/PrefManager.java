@@ -9,6 +9,7 @@ class PrefManager {
     private static final String PREF_NAME = "com.pratik.bluetoothadhoc";
     private static final String IS_FIRST_TIME_LAUNCH = "IsFirstTimeLaunch";
     private static final String IS_MY_DEVICE_MASTER = "IsMyDeviceMaster";
+    private static final String IS_MY_DEVICE_SLAVE = "IsMyDeviceSlave";
     private static final String MASTER_MAC_ADDRESS = "MasterMacAddress";
 
     private SharedPreferences pref;
@@ -32,6 +33,11 @@ class PrefManager {
         editor.commit();
     }
 
+    public void setMyDeviceSlave(boolean isMyDeviceSlave){
+        editor.putBoolean(IS_MY_DEVICE_SLAVE,isMyDeviceSlave);
+        editor.commit();
+    }
+
     public void setMasterMacAddress(String masterMacAddress){
         editor.putString(MASTER_MAC_ADDRESS,masterMacAddress);
         editor.commit();
@@ -44,4 +50,6 @@ class PrefManager {
     }
 
     public boolean isMyDeviceMaster(){return pref.getBoolean(IS_MY_DEVICE_MASTER,false); }
+
+    public boolean isMyDeviceSlave(){return pref.getBoolean(IS_MY_DEVICE_SLAVE,false); }
 }
