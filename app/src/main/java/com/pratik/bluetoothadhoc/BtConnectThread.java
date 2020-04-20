@@ -10,7 +10,7 @@ import java.util.UUID;
 
 import static android.content.ContentValues.TAG;
 import static com.pratik.bluetoothadhoc.MainActivity.remoteBtDeviceList;
-import static com.pratik.bluetoothadhoc.MainActivity.remoteDeviceIdList;
+import static com.pratik.bluetoothadhoc.MainActivity.remoteConnectDeviceIdList;
 
 
 public class BtConnectThread extends Thread {
@@ -74,7 +74,7 @@ public class BtConnectThread extends Thread {
 
         BluetoothMessageService service = new BluetoothMessageService();
         service.connectService(mmSocket);
-        remoteDeviceIdList.put(mmSocket.getRemoteDevice().getName(),mmSocket);
+        remoteConnectDeviceIdList.put(mmSocket.getRemoteDevice().getName(),mmSocket);
 
     }
 

@@ -67,10 +67,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     Map<String, String> masterProp;
 
-    static Map<String, BluetoothSocket> remoteDeviceIdList = new HashMap<>();
+    static Map<String, BluetoothSocket> remoteConnectDeviceIdList = new HashMap<>();
+    static Map<String,BluetoothSocket> remoteAcceptDeviceIdList = new HashMap<>();
     static List<BluetoothDevice> remoteBtDeviceList = new ArrayList<>();
     static List<String> faultTolerantAddresss;
     static int realRank;
+    static ArrayAdapter<String> pairedListAdapter;
 
     private BluetoothAdapter btAdapter;
     private BroadcastReceiver receiver;
@@ -78,11 +80,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     ArrayAdapter<String> deviceReadyListAdapter;
     static int btnFlag = 0;
     private DeviceProps deviceProps;
-    private DevicesViewModel viewModel;
-    private TextView rankText;
+    static DevicesViewModel viewModel;
+    @SuppressLint("StaticFieldLeak")
+    static TextView rankText;
     ArrayList<String> pairedList, deviceReadyList;
     ListView deviceReadyListView;
     PrefManager prefs;
+    static BtAcceptThread[] thread;
+    static ManageUUID manageUUID;
+    static AlertDialog.Builder dialog;
 
 
     @Override
@@ -105,6 +111,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
 
+        manageUUID = new ManageUUID();
+        thread = new BtAcceptThread[manageUUID.getDummyUuids().size()];
 
 
         masterProp = new HashMap<>();
@@ -119,6 +127,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         deviceProps = new DeviceProps();
         myDeviceProp();
         String mGlInfo = gatherGlInfo();
+
+        dialog = new AlertDialog.Builder(this)
+                .setTitle("Alert")
+                .setMessage("Bluetooth is turned Off")
+                .setPositiveButton("Idc",null);
 
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
@@ -154,6 +167,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             e.printStackTrace();
         }
         rankText = findViewById(R.id.task_ready_tv);
+
+        createThreads();
 
     }
 
@@ -308,10 +323,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void onChanged(final List<String> deviceName) {
                 //send updated ranks to devices
                 Log.i("asdf", "sending updated ranks to device(s)");
-                if (remoteDeviceIdList.size() != 0) {
+                if (remoteConnectDeviceIdList.size() != 0) {
                     for (int i = 0; i < deviceName.size(); i++) {
-                        if (remoteDeviceIdList.containsKey(deviceName.get(i))) {
-                            BluetoothSocket socket = remoteDeviceIdList.get(deviceName.get(i));
+                        if (remoteConnectDeviceIdList.containsKey(deviceName.get(i))) {
+                            BluetoothSocket socket = remoteConnectDeviceIdList.get(deviceName.get(i));
                             assert socket != null;
                             if (socket.isConnected()) {
                                 BluetoothMessageService service = new BluetoothMessageService();
@@ -326,7 +341,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                                     BluetoothMessageService service2 = new BluetoothMessageService();
                                     service2.connectService(socket);
 
-                                    List<BluetoothSocket> list = new ArrayList<>(remoteDeviceIdList.values());
+                                    List<BluetoothSocket> list = new ArrayList<>(remoteConnectDeviceIdList.values());
                                     List<String> addr = new ArrayList<>();
                                     for (BluetoothSocket soc : list) {
                                         if (!socket.getRemoteDevice().getAddress().equals(soc.getRemoteDevice().getAddress()))
@@ -355,7 +370,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Map<String, String> pairedDevices = getPairedDevices();
         pairedList.addAll(devices);
 
-        ArrayAdapter<String> pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
+        pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
         pairedListView.setAdapter(pairedListAdapter);
 
         pairedListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -373,21 +388,32 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         });
 
+
+    }
+
+    public static void createThreads(){
         if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
-            ManageUUID manageUUID = new ManageUUID();
+
             for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
-                BtAcceptThread thread = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
-                thread.start();
+                thread[i] = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
+                thread[i].start();
+
             }
         }
+    }
 
+    public static void releaseThreads(){
+        for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
+            thread[i].cancel();
+
+        }
     }
 
     public void deviceReadyView() {
 
         deviceReadyListView.setVisibility(View.VISIBLE);
         deviceReadyList.clear();
-        deviceReadyList.addAll(remoteDeviceIdList.keySet());
+        deviceReadyList.addAll(remoteConnectDeviceIdList.keySet());
         deviceReadyListView.setAdapter(deviceReadyListAdapter);
 
     }
@@ -488,7 +514,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private BluetoothDevice getPairedBtDevices(String deviceName) {
-        Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
+        Set<BluetoothDevice> pairedDevices = BluetoothAdapter.getDefaultAdapter().getBondedDevices();
         if (pairedDevices.size() > 0) {
             for (BluetoothDevice device : pairedDevices) {
                 if (device.getName().equals(deviceName))
@@ -521,7 +547,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
-        if (remoteDeviceIdList.size() == 0) {
+        if (remoteConnectDeviceIdList.size() == 0) {
 
             Toast.makeText(this, "No devices ready to execute task", Toast.LENGTH_SHORT).show();
 

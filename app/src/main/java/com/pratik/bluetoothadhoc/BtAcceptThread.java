@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.UUID;
 
 import static android.provider.CalendarContract.Calendars.NAME;
+import static com.pratik.bluetoothadhoc.MainActivity.remoteAcceptDeviceIdList;
 
 
 public class BtAcceptThread extends Thread {
@@ -64,6 +65,7 @@ public class BtAcceptThread extends Thread {
 
         BluetoothMessageService service = new BluetoothMessageService();
         service.connectService(socket);
+        remoteAcceptDeviceIdList.put(socket.getRemoteDevice().getName(),socket);
         service.sendMessage(Build.MODEL,socket.getRemoteDevice().getName(),socket.getRemoteDevice().getAddress());
 
 
