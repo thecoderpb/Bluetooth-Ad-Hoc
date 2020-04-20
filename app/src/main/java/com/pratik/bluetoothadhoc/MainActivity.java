@@ -356,6 +356,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .setMessage(str)
                 .setPositiveButton("OK", null)
                 .show();
+        isShowAlert = false;
 
         deviceReadyListView.setVisibility(View.INVISIBLE);
 
@@ -635,13 +636,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
 
             case R.id.restart_threads:
-                releaseThreads();
+                /*releaseThreads();
                 new Handler().postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         createThreads();
                     }
-                }, 500);
+                }, 500);*/
+                Toast.makeText(this, "Temporarily disabled.", Toast.LENGTH_SHORT).show();
+                break;
 
         }
 
@@ -691,9 +694,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             prevSplitNum = splitNum;
         }
-        if (range[splitWork - 1][1] != loopCount+1) {
-            range[splitWork - 1][1] = loopCount+1;
-        }
+        range[splitWork - 1][1] = loopCount+1;
 
 
         Log.i("asdf", "------------SENDING TO DEVICES-----------");
