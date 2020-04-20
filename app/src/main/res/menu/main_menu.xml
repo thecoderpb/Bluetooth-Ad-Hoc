@@ -2,7 +2,7 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item android:title="Broadcast msg" android:id="@+id/menu_task1"/>
-    <item android:title="Task 2" android:id="@+id/menu_task2"/>
-    <item android:title="Task 3" android:id="@+id/menu_task3"/>
+    <item android:title="Perform Task" android:id="@+id/menu_task2"/>
+    <item android:title="Restart Threads" android:id="@+id/restart_threads"/>
 
 </menu>

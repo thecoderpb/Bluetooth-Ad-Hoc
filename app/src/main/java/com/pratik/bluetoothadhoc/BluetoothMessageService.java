@@ -7,34 +7,23 @@ import android.os.Bundle;
 import android.os.Message;
 import android.util.Log;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 
 import static com.pratik.bluetoothadhoc.MainActivity.handler;
 import static com.pratik.bluetoothadhoc.MainActivity.isShowAlert;
 
 public class BluetoothMessageService {
     private static final String TAG = "asdf";
-     // handler that gets info from Bluetooth service
+    // handler that gets info from Bluetooth service
     private ConnectedThread thread;
-    static String remoteDeviceName,remoteDeviceAddress;
+    static String remoteDeviceName, remoteDeviceAddress;
 
     public static Map<String, Integer> deviceRanking = new HashMap<>();
 
@@ -46,33 +35,33 @@ public class BluetoothMessageService {
     }
 
 
-    public void sendMessage(String deviceName,String remoteDeviceName,String remoteDeviceAddress) {
+    public void sendMessage(String deviceName, String remoteDeviceName, String remoteDeviceAddress) {
         BluetoothMessageService.remoteDeviceName = remoteDeviceName;
         BluetoothMessageService.remoteDeviceAddress = remoteDeviceAddress;
         DeviceProps props = new DeviceProps();
-        String msg = "\f" + props.getMaxFreq() + "\b" + props.getNumberOfCores() + "\b" + deviceName +"\b" + props.getGPUinfo() +"\0";
+        String msg = "\f" + props.getMaxFreq() + "\b" + props.getNumberOfCores() + "\b" + deviceName + "\b" + props.getGPUinfo() + "\0";
         byte[] message = msg.getBytes();
         isShowAlert = true;
         thread.write(message, msg);
     }
 
-    public void sendRanking(int rank){
-        String msg = "\rRank " + rank +"\0";
+    public void sendRanking(int rank) {
+        String msg = "\rRank " + rank + "\0";
         byte[] message = msg.getBytes();
         isShowAlert = false;
-        thread.write(message,msg);
+        thread.write(message, msg);
     }
 
-    public void sendData(List<String> macAddress){
+    public void sendData(List<String> macAddress) {
 
         String message = "\t";
-        for( String str : macAddress){
-             message = message + str +"\t";
+        for (String str : macAddress) {
+            message = message + str + "\t";
         }
-        message+="\0";
+        message += "\0";
         byte[] msg = message.getBytes();
-        thread.write(msg,message);
-        Log.i("asdf","next potential ranked device details sent");
+        thread.write(msg, message);
+        Log.i("asdf", "next potential ranked device details sent");
     }
 
 
@@ -83,7 +72,7 @@ public class BluetoothMessageService {
         if (pairedDevices.size() > 0) {
             // There are paired devices. Get the name and address of each paired device.
             for (BluetoothDevice device : pairedDevices) {
-               macAddress.add(device.getAddress());
+                macAddress.add(device.getAddress());
             }
         }
         return macAddress;
@@ -93,6 +82,20 @@ public class BluetoothMessageService {
     public void sendBroadcast() {
 
         String message = "\bMessage received from master\0";
+        byte[] msg = message.getBytes();
+        thread.write(msg, message);
+
+    }
+
+    public void sendTask(String message) {
+
+        byte[] msg = message.getBytes();
+        thread.write(msg,message);
+
+    }
+
+    public void sendResultVal(String message) {
+
         byte[] msg = message.getBytes();
         thread.write(msg,message);
 

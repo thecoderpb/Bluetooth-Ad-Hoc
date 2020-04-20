@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
@@ -14,6 +15,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.util.Log;
+import android.util.SparseIntArray;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -48,6 +50,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private static final int REQUEST_ENABLE_BT = 1;
 
+    static int calculatedSum = 0;
+
     static int ConnectedDeviceCount = 0;
     public static Handler handler;
     public static boolean isShowAlert = true;
@@ -68,7 +72,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     Map<String, String> masterProp;
 
     static Map<String, BluetoothSocket> remoteConnectDeviceIdList = new HashMap<>();
-    static Map<String,BluetoothSocket> remoteAcceptDeviceIdList = new HashMap<>();
+    static Map<String, BluetoothSocket> remoteAcceptDeviceIdList = new HashMap<>();
     static List<BluetoothDevice> remoteBtDeviceList = new ArrayList<>();
     static List<String> faultTolerantAddresss;
     static int realRank;
@@ -131,7 +135,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         dialog = new AlertDialog.Builder(this)
                 .setTitle("Alert")
                 .setMessage("Bluetooth is turned Off")
-                .setPositiveButton("I don't care",null);
+                .setPositiveButton("I don't care", null);
 
 
         // PACKAGE_NAME = getApplicationContext().getPackageName();
@@ -203,20 +207,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         displayRank(rank);
 
                     } else if (mainMsg[0].startsWith("\f")) {
-                       /* strings[0] = mainMsg[0].substring(1, 8); // freq
-                        strings[1] = mainMsg[0].substring(9, 10); // core
-                        strings[2] = mainMsg[0].substring(11); //gpu and device name
-                        if (strings[2].startsWith("Adreno", 12)) {
-                            strings[3] = strings[2].substring(11, 21);
-                            strings[2] = strings[2].substring(21);
 
-                            Log.i("asdf", "device freq:" + strings[0]);
-                            Log.i("asdf", "device max cores:" + strings[1]);
-                            Log.i("asdf", "device name:" + strings[2]);
-
-                        }*/
-                       String[] split = mainMsg[0].split("\b");
-                       strings[0] = split[0].substring(1); //freq
+                        String[] split = mainMsg[0].split("\b");
+                        strings[0] = split[0].substring(1); //freq
                         strings[1] = split[1]; // core
                         strings[2] = split[2]; // device name
                         strings[3] = split[3]; // gpu
@@ -244,7 +237,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         for (String addr : strss) {
                             if (!addr.equals("")) {
                                 faultTolerantAddresss.add(addr);
-                                Log.i("asdf","fta : "+addr);
+                                Log.i("asdf", "fta : " + addr);
                             }
                         }
 
@@ -253,8 +246,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         Log.i("asdff", faultTolerantAddresss.toString());
 
 
-                    }else if (mainMsg[0].startsWith("\b")){
+                    } else if (mainMsg[0].startsWith("\b")) {
                         displayBroadcastMsg();
+                    } else if (mainMsg[0].startsWith("\n")) {
+                        String[] splitMsg = mainMsg[0].split("\t");
+                        int startIndex = Integer.parseInt(splitMsg[0].substring(1));
+                        int stopIndex = Integer.parseInt(splitMsg[1]);
+                        Log.i("asdf", "Index received " + startIndex + "-" + stopIndex);
+                        calculateVal(startIndex, stopIndex);
+
+
+                    } else {
+                        Log.i("asdff", mainMsg[0]);
+                        calculatedSum += Integer.valueOf(mainMsg[0]);
+                        Log.i("asdf","Calculated Sum " + calculatedSum);
+                        if(calculatedSum == 500500){
+                            showRes(calculatedSum);
+                        }
                     }
 
 
@@ -268,6 +276,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
         };
+
+
+    }
+
+    private void showRes(int calculatedSum) {
+
+        new AlertDialog.Builder(this)
+                .setTitle("Result ")
+                .setMessage("Calculated sum obtained from cluster: " + calculatedSum)
+                .setPositiveButton("Ok", null)
+                .show();
+    }
+
+    private void calculateVal(int startIndex, int stopIndex) {
+
+        Log.i("asdf", "Calculating in slave node");
+        int sum = 0;
+        for (int i = startIndex; i < stopIndex; i++) {
+            sum += i;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Slave Task Performed")
+                .setMessage("StartIndex:" + startIndex + " StopIndex:" + stopIndex + "\nSum:" + sum)
+                .setPositiveButton("Ok", null)
+                .show();
+        Log.i("asdf", "---SENDING TASK PERFORMED FROM SLAVE----");
+
+        List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
+        BluetoothMessageService service = new BluetoothMessageService();
+        service.connectService(socket.get(0));
+        service.sendResultVal(String.valueOf(sum) + "\0");
 
 
     }
@@ -328,7 +367,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         prefs.setMyDeviceMaster(true);
 
-        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores : " + cpuCore +"\nGPU : " + gpu;
+        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores : " + cpuCore + "\nGPU : " + gpu;
         new AlertDialog.Builder(this)
                 .setTitle("Device Props obtained")
                 .setMessage(text)
@@ -410,7 +449,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-    public static void createThreads(){
+    public static void createThreads() {
         if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
 
             for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
@@ -421,7 +460,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    public static void releaseThreads(){
+    public static void releaseThreads() {
         for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
             thread[i].cancel();
 
@@ -566,36 +605,121 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
-        if (remoteConnectDeviceIdList.size() == 0) {
 
-            Toast.makeText(this, "No devices ready to execute task", Toast.LENGTH_SHORT).show();
+        switch (item.getItemId()) {
+            case R.id.menu_task1:
+                if (remoteConnectDeviceIdList.size() == 0) {
 
-        } else
-            switch (item.getItemId()) {
-                case R.id.menu_task1: broadcastMsg();
-                    break;
-                case R.id.menu_task2: performAddingNumbers();
-                    Toast.makeText(this, "Task 2", Toast.LENGTH_SHORT).show();
-                    break;
-                case R.id.menu_task3:
-                    Toast.makeText(this, "Task 3", Toast.LENGTH_SHORT).show();
-                    break;
-            }
+                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+                } else
+                    broadcastMsg();
+                break;
+            case R.id.menu_task2:
+                if (remoteConnectDeviceIdList.size() == 0) {
+
+                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+                } else
+                    new AlertDialog.Builder(this)
+                            .setTitle("Confirmation")
+                            .setMessage("Are you sure?")
+                            .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    performAddingNumbers();
+                                }
+                            })
+                            .setNegativeButton("No", null)
+                            .show();
+                break;
+
+            case R.id.restart_threads:
+                releaseThreads();
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        createThreads();
+                    }
+                }, 500);
+
+        }
 
         return super.onOptionsItemSelected(item);
     }
 
+
+    /**
+     * A simple task of adding numbers to be parallelized
+     * <p>
+     * sum = 0;
+     * for(int i=0; i<1000; i++){
+     * sum = sum + i;
+     * }
+     * <p>
+     * Above code is parallelized on various nodes in the cluster
+     */
+    static int loopCount = 1000;
+
     private void performAddingNumbers() {
 
+        //if (prefs.isMyDeviceMaster() && remoteConnectDeviceIdList.size() != 0) {
+
+        Toast.makeText(this, "--Starting Task--", Toast.LENGTH_SHORT).show();
+
+        Log.i("asdf", "----------STARTING TASK FROM MASTER------------");
+        int splitWork = remoteConnectDeviceIdList.size();
+
+        @SuppressLint("UseSparseArrays")
+        int[][] range = new int[splitWork][2];
+        Log.i("asdf", "Splitting Load based on size of cluster");
+        int prevSplitNum = 0;
+        int splitNum = 0;
+        int splitSize = (int) loopCount / splitWork;
+
+
+        for (int i = 0; i < splitWork; i++) {
+            splitNum = splitNum + splitSize;
+            for (int j = 0; j < 2; j++) {
+                if (j == 0)
+                    range[i][j] = prevSplitNum;
+                else
+                    range[i][j] = splitNum;
+            }
+            Log.i("asdf", "Start:" + prevSplitNum + ",End:" + splitNum);
+
+
+            prevSplitNum = splitNum;
+        }
+        if (range[splitWork - 1][1] != loopCount+1) {
+            range[splitWork - 1][1] = loopCount+1;
+        }
+
+
+        Log.i("asdf", "------------SENDING TO DEVICES-----------");
+
+        int i = 0;
+        for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
+            Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
+            BluetoothMessageService service = new BluetoothMessageService();
+            service.connectService(soc);
+
+
+            service.sendTask("\n" + range[i][0] + "\t" + range[i][1] + "\0");
+            i++;
+        }
+
+
+        // }
 
 
     }
 
     private void broadcastMsg() {
 
-        if(prefs.isMyDeviceMaster()){
+        if (prefs.isMyDeviceMaster()) {
             int size = remoteConnectDeviceIdList.size();
-            for(BluetoothSocket socket : remoteConnectDeviceIdList.values()){
+            for (BluetoothSocket socket : remoteConnectDeviceIdList.values()) {
                 BluetoothMessageService service = new BluetoothMessageService();
                 service.connectService(socket);
                 service.sendBroadcast();
