@@ -15,6 +15,7 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.util.Random;
 import java.util.regex.Pattern;
 
 
@@ -69,10 +70,20 @@ public class DeviceProps {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        if(cpuMaxFreq.equals("0")){
+            Random random = new Random();
+            String freq = "";
+            freq += String.valueOf(1000 +random.nextInt(586));
+            freq += "000";
+            return freq;
+            //return  freq;
+        }
+
         return cpuMaxFreq;
     }
 
-    private void readCPUinfo() {
+    private String readCPUinfo() {
         ProcessBuilder cmd;
         String result = "";
 
@@ -93,7 +104,7 @@ public class DeviceProps {
         }
 
         Log.i("asdf", result);
-        //return result;
+        return result;
     }
 
     public String getGPUinfo() {

@@ -66,7 +66,8 @@ public class BtAcceptThread extends Thread {
         BluetoothMessageService service = new BluetoothMessageService();
         service.connectService(socket);
         remoteAcceptDeviceIdList.put(socket.getRemoteDevice().getName(),socket);
-        service.sendMessage(Build.MODEL,socket.getRemoteDevice().getName(),socket.getRemoteDevice().getAddress());
+        Log.i("asdff","connect device name " + BluetoothAdapter.getDefaultAdapter().getName());
+        service.sendMessage(BluetoothAdapter.getDefaultAdapter().getName(),socket.getRemoteDevice().getName(),socket.getRemoteDevice().getAddress());
 
 
     }

@@ -27,6 +27,8 @@ import static com.pratik.bluetoothadhoc.MainActivity.pairedListAdapter;
 import static com.pratik.bluetoothadhoc.MainActivity.rankText;
 import static com.pratik.bluetoothadhoc.MainActivity.realRank;
 import static com.pratik.bluetoothadhoc.MainActivity.releaseThreads;
+import static com.pratik.bluetoothadhoc.MainActivity.remoteAcceptDeviceIdList;
+import static com.pratik.bluetoothadhoc.MainActivity.remoteConnectDeviceIdList;
 import static com.pratik.bluetoothadhoc.MainActivity.setButtonText;
 import static com.pratik.bluetoothadhoc.MainActivity.viewModel;
 
@@ -90,9 +92,16 @@ public class BluetoothReceiver extends BroadcastReceiver {
 
             PrefManager prefs = new PrefManager(context);
             if (!prefs.isMyDeviceMaster() && prefs.isMyDeviceSlave() && realRank != 1) { //proper slave
-                Toast.makeText(context, "Device disconnected. Reconnecting", Toast.LENGTH_SHORT).show();
-                connectService(context, prefs.getMasterMacAddress());
+                Toast.makeText(context, "Device disconnected. Waiting for next master to connect", Toast.LENGTH_SHORT).show();
+
+                //connectService(context, prefs.getMasterMacAddress());
+                remoteAcceptDeviceIdList.clear();
+
             }
+
+            deviceReadyList.clear();
+            deviceReadyListAdapter.notifyDataSetChanged();
+
 
             Log.i("asdf", "Device disconnected. Reconnecting");
             if (realRank == 1) { //next new master in charge
@@ -117,6 +126,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
             BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(addr);
             Log.i("asdf", "new master connecting");
             BtConnectThread thread = new BtConnectThread(device);
+            remoteConnectDeviceIdList.clear();
             thread.start();
         }catch (Exception e){
             e.printStackTrace();

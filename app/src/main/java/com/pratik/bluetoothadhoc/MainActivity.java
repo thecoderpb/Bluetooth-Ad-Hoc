@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     static int ConnectedDeviceCount = 0;
     public static Handler handler;
     public static boolean isShowAlert = true;
+    public static boolean threadCreated = false;
 
     // Used to load the 'native-lib' library on application startup.
     static {
@@ -118,6 +119,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         manageUUID = new ManageUUID();
         thread = new BtAcceptThread[manageUUID.getDummyUuids().size()];
 
+        Log.i("asdff", "my device name " + btAdapter.getName());
 
         masterProp = new HashMap<>();
         pairedList = new ArrayList<>();
@@ -259,8 +261,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     } else {
                         Log.i("asdff", mainMsg[0]);
                         calculatedSum += Integer.valueOf(mainMsg[0]);
-                        Log.i("asdf","Calculated Sum " + calculatedSum);
-                        if(calculatedSum == 500500){
+                        Log.i("asdf", "Calculated Sum " + calculatedSum);
+                        if (calculatedSum == 500500) {
                             showRes(calculatedSum);
                         }
                     }
@@ -458,14 +460,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 thread[i].start();
 
             }
+            threadCreated = true;
         }
     }
 
     public static void releaseThreads() {
-        for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
-            thread[i].cancel();
+        if (threadCreated){
+            for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
+                thread[i].cancel();
 
+            }
+            threadCreated = false;
         }
+
     }
 
     public void deviceReadyView() {
@@ -694,7 +701,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             prevSplitNum = splitNum;
         }
-        range[splitWork - 1][1] = loopCount+1;
+        range[splitWork - 1][1] = loopCount + 1;
 
 
         Log.i("asdf", "------------SENDING TO DEVICES-----------");
