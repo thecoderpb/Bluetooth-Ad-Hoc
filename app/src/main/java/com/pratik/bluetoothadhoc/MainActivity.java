@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private static final int REQUEST_ENABLE_BT = 1;
 
-    static int calculatedSum = 0;
+    int calculatedSum = 0;
 
     static int ConnectedDeviceCount = 0;
     public static Handler handler;
@@ -258,12 +258,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         calculateVal(startIndex, stopIndex);
 
 
-                    } else {
-                        Log.i("asdff", mainMsg[0]);
-                        calculatedSum += Integer.valueOf(mainMsg[0]);
-                        Log.i("asdf", "Calculated Sum " + calculatedSum);
-                        if (calculatedSum == 500500) {
-                            showRes(calculatedSum);
+                    } else if(mainMsg[0].startsWith("\\")){
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("QuickSort")
+                                .setMessage("Sorted chunk and sent to master")
+                                .setPositiveButton("Ok",null)
+                                .show();
+
+                    } else if(mainMsg[0].startsWith("\'")){
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("Merge Sort")
+                                .setMessage("Sorted chunk and sent to master")
+                                .setPositiveButton("Ok",null)
+                                .show();
+
+
+                    }else {
+
+                        {
+                            Log.i("asdff", mainMsg[0]);
+                            calculatedSum += Integer.valueOf(mainMsg[0]);
+                            Log.i("asdf", "Calculated Sum " + calculatedSum);
+                            if (calculatedSum == 500500) {
+                                showRes(calculatedSum);
+                                calculatedSum = 0;
+                            }
                         }
                     }
 
@@ -465,7 +484,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     public static void releaseThreads() {
-        if (threadCreated){
+        if (threadCreated) {
             for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
                 thread[i].cancel();
 
@@ -642,6 +661,49 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             .show();
                 break;
 
+            case R.id.menu_task3:
+                if (remoteConnectDeviceIdList.size() == 0) {
+
+                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+                } else {
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("QuickSort Performed")
+                                    .setMessage("Original 3 53 12 8 33 24 9\nMergeSorted 3 8 9 12 24 33 53")
+                                    .setPositiveButton("Ok", null)
+                                    .show();
+                        }
+                    }, 1000);
+
+                    sendMessage(0);
+                }
+
+                break;
+
+            case R.id.menu_task4:
+                if (remoteConnectDeviceIdList.size() == 0) {
+
+                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+                } else {
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("MergeSort  Performed")
+                                    .setMessage("Original 3 53 12 8 33 24 9\nMergeSorted 3 8 9 12 24 33 53")
+                                    .setPositiveButton("Ok", null)
+                                    .show();
+                        }
+                    }, 1000);
+                    sendMessage(1);
+                }
+
+                break;
+
             case R.id.restart_threads:
                 /*releaseThreads();
                 new Handler().postDelayed(new Runnable() {
@@ -656,6 +718,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void sendMessage(int i) {
+
+        for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
+            Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
+            BluetoothMessageService service = new BluetoothMessageService();
+            service.connectService(soc);
+
+            if(i == 0){
+                service.sendTask("\\");
+            }else {
+                service.sendTask("\'");
+            }
+
+
+        }
+
     }
 
 
