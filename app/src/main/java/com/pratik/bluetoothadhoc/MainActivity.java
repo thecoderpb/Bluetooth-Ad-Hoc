@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import static com.pratik.bluetoothadhoc.BluetoothMessageService.remoteDeviceAddress;
@@ -184,6 +185,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    static  int index=0;
+    static int tasks=0;
+    static int newArr[];
     private void manageHandler() throws IOException, ClassNotFoundException {
 
         handler = new Handler(Looper.getMainLooper()) {
@@ -191,6 +195,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void handleMessage(@NonNull Message msg) {
 
+                int[] array = new int[datapoints];
 
                 if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_READ) {
 
@@ -258,22 +263,47 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         calculateVal(startIndex, stopIndex);
 
 
+                    }else if(mainMsg[0].startsWith("\'")){
+                        array = (int[]) msg.obj;
+
                     } else if(mainMsg[0].startsWith("\\")){
+                        String[] splitMsg = mainMsg[0].split("\t");
+                        int startIndex = Integer.parseInt(splitMsg[0].substring(1));
+                        int stopIndex = Integer.parseInt(splitMsg[1]);
+                        QuickSort ob = new QuickSort();
+                        ob.sort(array,startIndex,stopIndex);
+
+                        List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
+                        BluetoothMessageService service = new BluetoothMessageService();
+                        service.connectService(socket.get(0));
+                        service.sendTask("\""+Arrays.toString(array));
+
                         new AlertDialog.Builder(MainActivity.this)
                                 .setTitle("QuickSort")
                                 .setMessage("Sorted chunk and sent to master")
                                 .setPositiveButton("Ok",null)
                                 .show();
 
-                    } else if(mainMsg[0].startsWith("\'")){
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("Merge Sort")
-                                .setMessage("Sorted chunk and sent to master")
-                                .setPositiveButton("Ok",null)
-                                .show();
+                    } else if(mainMsg[0].startsWith("\"")){
+                         newArr = new int[datapoints];
+
+                        int[] arry = (int[]) msg.obj;
+                        for(int i=0;i<(datapoints/splitWork);i++){
+                            newArr[index] = arry[i];
+                            index++;
+                        }
+                        tasks++;
+                        if(tasks == splitWork){
+                            QuickSort sort = new QuickSort();
+                            sort.sort(newArr,0,datapoints-1);
+                            tasks=0;
+                            index=0;
+                        }
 
 
-                    }else {
+
+                    }
+                    else {
 
                         {
                             Log.i("asdff", mainMsg[0]);
@@ -667,39 +697,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
 
                 } else {
-                    new Handler().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            new AlertDialog.Builder(MainActivity.this)
-                                    .setTitle("QuickSort Performed")
-                                    .setMessage("Original 3 53 12 8 33 24 9\nMergeSorted 3 8 9 12 24 33 53")
-                                    .setPositiveButton("Ok", null)
-                                    .show();
-                        }
-                    }, 1000);
-
-                    sendMessage(0);
-                }
-
-                break;
-
-            case R.id.menu_task4:
-                if (remoteConnectDeviceIdList.size() == 0) {
-
-                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
-
-                } else {
-                    new Handler().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            new AlertDialog.Builder(MainActivity.this)
-                                    .setTitle("MergeSort  Performed")
-                                    .setMessage("Original 3 53 12 8 33 24 9\nMergeSorted 3 8 9 12 24 33 53")
-                                    .setPositiveButton("Ok", null)
-                                    .show();
-                        }
-                    }, 1000);
-                    sendMessage(1);
+                    sendMessage();
                 }
 
                 break;
@@ -720,20 +718,56 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         return super.onOptionsItemSelected(item);
     }
 
-    private void sendMessage(int i) {
+    static int datapoints = 10000;
+    static int[] arr = new int[datapoints];
+    static int splitWork = remoteConnectDeviceIdList.size();
 
+    private void generateRandomNo(){
+
+        Random random = new Random();
+        for(int i=0;i<datapoints;i++){
+            arr[i] = 1 +random.nextInt(1000);
+        }
+
+
+    }
+
+    private void sendMessage() {
+
+
+        generateRandomNo();
+        @SuppressLint("UseSparseArrays")
+        int[][] range = new int[splitWork][2];
+        Log.i("asdf", "Splitting Load based on size of cluster");
+        int prevSplitNum = 0;
+        int splitNum = 0;
+        int splitSize = (int) loopCount / splitWork;
+
+
+        for (int i = 0; i < splitWork; i++) {
+            splitNum = splitNum + splitSize;
+            for (int j = 0; j < 2; j++) {
+                if (j == 0)
+                    range[i][j] = prevSplitNum;
+                else
+                    range[i][j] = splitNum;
+            }
+            Log.i("asdf", "Start:" + prevSplitNum + ",End:" + splitNum);
+
+
+            prevSplitNum = splitNum;
+        }
+        range[splitWork - 1][1] = loopCount + 1;
+
+        int i=0;
         for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
             Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
             BluetoothMessageService service = new BluetoothMessageService();
             service.connectService(soc);
 
-            if(i == 0){
-                service.sendTask("\\");
-            }else {
-                service.sendTask("\'");
-            }
-
-
+            service.sendTask("\'" + Arrays.toString(arr) +"\0");
+            service.sendTask("\\" +  range[i][0] + "\t" + range[i][1] + "\0");
+            i++;
         }
 
     }
@@ -758,7 +792,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Toast.makeText(this, "--Starting Task--", Toast.LENGTH_SHORT).show();
 
         Log.i("asdf", "----------STARTING TASK FROM MASTER------------");
-        int splitWork = remoteConnectDeviceIdList.size();
+
 
         @SuppressLint("UseSparseArrays")
         int[][] range = new int[splitWork][2];
