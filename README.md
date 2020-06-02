@@ -21,3 +21,6 @@ tolerant network.
 Extract the source code. Place it in androidStudioProjects folder located in documents folder.<br>
 Open Android Studio and open the location of the project. Let the gradle project sync. It will take a while
 <br> Then connect your device and run the code.Upon successfull installation, the app will run on your device. Follow the prompts on the screen to test the app.
+
+<br><br>
+Created by Pratik Byathnal and Sarvesh Kedia for the course Heterogeneous Parallelism
