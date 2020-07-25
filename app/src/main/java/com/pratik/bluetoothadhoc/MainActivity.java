@@ -15,7 +15,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.util.Log;
-import android.util.SparseIntArray;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -36,6 +35,7 @@ import androidx.lifecycle.ViewModelProviders;
 import com.pratik.bluetoothadhoc.database.Devices;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -49,660 +49,729 @@ import static com.pratik.bluetoothadhoc.BluetoothMessageService.remoteDeviceName
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
-    private static final int REQUEST_ENABLE_BT = 1;
-
-    int calculatedSum = 0;
+	private static final int REQUEST_ENABLE_BT = 1;
 
-    static int ConnectedDeviceCount = 0;
-    public static Handler handler;
-    public static boolean isShowAlert = true;
-    public static boolean threadCreated = false;
+	int calculatedSum = 0;
 
-    // Used to load the 'native-lib' library on application startup.
-    static {
-        System.loadLibrary("native-lib");
-        try {
-            System.load("/system/vendor/lib/libOpenCL.so");
-            Log.i("asdf", "Library loaded successfully");
-        } catch (UnsatisfiedLinkError e) {
-            e.printStackTrace();
-            Log.i("asdf", "failed to find lib");
-        }
+	static int ConnectedDeviceCount = 0;
+	public static Handler handler;
+	public static boolean isShowAlert = true;
+	public static boolean threadCreated = false;
 
-    }
-
-    Map<String, String> masterProp;
-
-    static Map<String, BluetoothSocket> remoteConnectDeviceIdList = new HashMap<>();
-    static Map<String, BluetoothSocket> remoteAcceptDeviceIdList = new HashMap<>();
-    static List<BluetoothDevice> remoteBtDeviceList = new ArrayList<>();
-    static List<String> faultTolerantAddresss;
-    static int realRank;
-    static ArrayAdapter<String> pairedListAdapter;
+	static int datapoints = 1000;
+	static int datapoints2 = 100000;
+	static int datapoints3 = 1000000;
 
-    private BluetoothAdapter btAdapter;
-    private BroadcastReceiver receiver;
-    private static Button btButton;
-    static ArrayAdapter<String> deviceReadyListAdapter;
-    static int btnFlag = 0;
-    private DeviceProps deviceProps;
-    static DevicesViewModel viewModel;
-    @SuppressLint("StaticFieldLeak")
-    static TextView rankText;
-    static ArrayList<String> pairedList, deviceReadyList;
-    ListView deviceReadyListView;
-    PrefManager prefs;
-    static BtAcceptThread[] thread;
-    static ManageUUID manageUUID;
-    static AlertDialog.Builder dialog;
 
+	// Used to load the 'native-lib' library on application startup.
+	static {
+		System.loadLibrary("native-lib");
+		try {
+			System.load("/system/vendor/lib/libOpenCL.so");
+			Log.i("asdf", "Library loaded successfully");
+		} catch (UnsatisfiedLinkError e) {
+			e.printStackTrace();
+			Log.i("asdf", "failed to find lib");
+		}
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
+	}
 
-        unregisterReceiver(receiver);
-        viewModel.nukeTable();
-    }
+	Map<String, String> masterProp;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+	static Map<String, BluetoothSocket> remoteConnectDeviceIdList = new HashMap<>();
+	static Map<String, BluetoothSocket> remoteAcceptDeviceIdList = new HashMap<>();
+	static List<BluetoothDevice> remoteBtDeviceList = new ArrayList<>();
+	static List<String> faultTolerantAddresss;
+	static int realRank;
+	static ArrayAdapter<String> pairedListAdapter;
 
-        btAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (btAdapter == null) {
-            Toast.makeText(this, "Bluetooth does not exits. App cannot run", Toast.LENGTH_LONG).show();
-            finish();
-        }
+	private BluetoothAdapter btAdapter;
+	private BroadcastReceiver receiver;
+	private static Button btButton;
+	static ArrayAdapter<String> deviceReadyListAdapter;
+	static int btnFlag = 0;
+	private DeviceProps deviceProps;
+	static DevicesViewModel viewModel;
+	@SuppressLint("StaticFieldLeak")
+	static TextView rankText;
+	static ArrayList<String> pairedList, deviceReadyList;
+	ListView deviceReadyListView;
+	PrefManager prefs;
+	static BtAcceptThread[] thread;
+	static ManageUUID manageUUID;
+	static AlertDialog.Builder dialog;
 
 
-        manageUUID = new ManageUUID();
-        thread = new BtAcceptThread[manageUUID.getDummyUuids().size()];
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
 
-        Log.i("asdff", "my device name " + btAdapter.getName());
+		unregisterReceiver(receiver);
+		viewModel.nukeTable();
+	}
 
-        masterProp = new HashMap<>();
-        pairedList = new ArrayList<>();
-        deviceReadyList = new ArrayList<>();
-        prefs = new PrefManager(this);
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
 
-        deviceReadyListView = findViewById(R.id.task_ready_lv);
+		btAdapter = BluetoothAdapter.getDefaultAdapter();
+		if (btAdapter == null) {
+			Toast.makeText(this, "Bluetooth does not exits. App cannot run", Toast.LENGTH_LONG).show();
+			finish();
+		}
 
-        btButton = findViewById(R.id.bt_btn);
 
-        deviceProps = new DeviceProps();
-        myDeviceProp();
-        String mGlInfo = gatherGlInfo();
+		manageUUID = new ManageUUID();
+		thread = new BtAcceptThread[manageUUID.getDummyUuids().size()];
 
-        dialog = new AlertDialog.Builder(this)
-                .setTitle("Alert")
-                .setMessage("Bluetooth is turned Off")
-                .setPositiveButton("I don't care", null);
+		Log.i("asdff", "my device name " + btAdapter.getName());
 
+		masterProp = new HashMap<>();
+		pairedList = new ArrayList<>();
+		deviceReadyList = new ArrayList<>();
+		prefs = new PrefManager(this);
 
-        // PACKAGE_NAME = getApplicationContext().getPackageName();
+		deviceReadyListView = findViewById(R.id.task_ready_lv);
 
-        // Example of a call to a native method
+		btButton = findViewById(R.id.bt_btn);
 
-        //readCPUinfo();
-        viewModel = ViewModelProviders.of(MainActivity.this).get(DevicesViewModel.class);
-        viewModel.nukeTable();
-        findViewById(R.id.bt_btn).setOnClickListener(this);
-        deviceReadyListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceReadyList);
+		deviceProps = new DeviceProps();
+		myDeviceProp();
+		String mGlInfo = gatherGlInfo();
 
+		dialog = new AlertDialog.Builder(this)
+				.setTitle("Alert")
+				.setMessage("Bluetooth is turned Off")
+				.setPositiveButton("I don't care", null);
 
-        handleListViews();
 
-        receiver = new BluetoothReceiver();
+		// PACKAGE_NAME = getApplicationContext().getPackageName();
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothDevice.ACTION_FOUND);
-        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
-        filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-        registerReceiver(receiver, filter);
-        if (BluetoothAdapter.getDefaultAdapter().isEnabled()) {
-            btnFlag = 1;
-            setButtonText(btnFlag);
-        }
+		// Example of a call to a native method
 
+		//readCPUinfo();
+		viewModel = ViewModelProviders.of(MainActivity.this).get(DevicesViewModel.class);
+		viewModel.nukeTable();
+		findViewById(R.id.bt_btn).setOnClickListener(this);
+		deviceReadyListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceReadyList);
 
-        try {
-            manageHandler();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        rankText = findViewById(R.id.task_ready_tv);
 
-        createThreads();
+		handleListViews();
 
-    }
+		receiver = new BluetoothReceiver();
 
-    private String gatherGlInfo() {
+		IntentFilter filter = new IntentFilter();
+		filter.addAction(BluetoothDevice.ACTION_FOUND);
+		filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+		filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
+		filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+		registerReceiver(receiver, filter);
+		if (BluetoothAdapter.getDefaultAdapter().isEnabled()) {
+			btnFlag = 1;
+			setButtonText(btnFlag);
+		}
 
-        return deviceProps.getGPUinfo();
 
-    }
+		try {
+			manageHandler();
+		} catch (IOException | ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+		rankText = findViewById(R.id.task_ready_tv);
 
-    static  int index=0;
-    static int tasks=0;
-    static int newArr[];
-    private void manageHandler() throws IOException, ClassNotFoundException {
+		createThreads();
 
-        handler = new Handler(Looper.getMainLooper()) {
+	}
 
-            @Override
-            public void handleMessage(@NonNull Message msg) {
+	private String gatherGlInfo() {
 
-                int[] array = new int[datapoints];
+		return deviceProps.getGPUinfo();
 
-                if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_READ) {
-
-                    Object obj = msg.obj;
-                    byte[] message = (byte[]) obj;
-                    String strs = new String(message);
+	}
 
-                    //Log.i("asdf",str);
+	static int index = 0;
+	static int tasks = 0;
+	static int newArr[];
+	static int myArraySize = 10;
+	//static int[] myArr = new int[myArraySize];
+	int[] a = new int[datapoints];
+	static int arrPointer = 0;
 
-                    final String[] strings = new String[4];
-                    String[] mainMsg = strs.split("\0"); //entire msg
-                    Log.i("asdf", "Entire message received from device -->" + mainMsg[0]);
-                    //TODO: Fix the substring issue
-                    if (mainMsg[0].startsWith("\r")) {
-                        String rank = mainMsg[0].substring(6);
-                        displayRank(rank);
 
-                    } else if (mainMsg[0].startsWith("\f")) {
-
-                        String[] split = mainMsg[0].split("\b");
-                        strings[0] = split[0].substring(1); //freq
-                        strings[1] = split[1]; // core
-                        strings[2] = split[2]; // device name
-                        strings[3] = split[3]; // gpu
 
-                        try {
-                            addDeviceToDB(Long.parseLong(strings[0]), Integer.parseInt(strings[1]), strings[2]);
-                            new Handler().postDelayed(new Runnable() {
-                                @Override
-                                public void run() {
-                                    rankDevice(strings[0], strings[1], strings[3], strings[2]);
-                                }
-                            }, 500);
+	static int slavPointer = 0;
 
-                        } catch (Exception e) {
-                            e.printStackTrace();
+	private void manageHandler() throws IOException, ClassNotFoundException {
 
-                        }
+		handler = new Handler(Looper.getMainLooper()) {
 
+			@Override
+			public void handleMessage(@NonNull Message msg) {
 
-                    } else if (mainMsg[0].startsWith("\t")) {
+				int[] array = new int[datapoints];
 
-                        Log.i("asdf", mainMsg[0]);
-                        String[] strss = mainMsg[0].split("\t");
-                        faultTolerantAddresss = new ArrayList<>(Arrays.asList(strss));
-                        for (String addr : strss) {
-                            if (!addr.equals("")) {
-                                faultTolerantAddresss.add(addr);
-                                Log.i("asdf", "fta : " + addr);
-                            }
-                        }
 
-                        if (!prefs.getMasterMacAddress().equals(""))
-                            faultTolerantAddresss.add(prefs.getMasterMacAddress());
-                        Log.i("asdff", faultTolerantAddresss.toString());
+				if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_READ) {
 
+					Object obj = msg.obj;
+					byte[] message = (byte[]) obj;
+					String strs = new String(message);
 
-                    } else if (mainMsg[0].startsWith("\b")) {
-                        displayBroadcastMsg();
-                    } else if (mainMsg[0].startsWith("\n")) {
-                        String[] splitMsg = mainMsg[0].split("\t");
-                        int startIndex = Integer.parseInt(splitMsg[0].substring(1));
-                        int stopIndex = Integer.parseInt(splitMsg[1]);
-                        Log.i("asdf", "Index received " + startIndex + "-" + stopIndex);
-                        calculateVal(startIndex, stopIndex);
+					//Log.i("asdf",str);
 
+					final String[] strings = new String[4];
+					String[] mainMsg = strs.split("\0"); //entire msg
+					Log.i("asdf", "Entire message received from device -->" + mainMsg[0]);
+					//TODO: Fix the substring issue
+					if (mainMsg[0].startsWith("\r")) {
+						String rank = mainMsg[0].substring(6);
+						displayRank(rank);
 
-                    }else if(mainMsg[0].startsWith("\'")){
-                        array = (int[]) msg.obj;
+					} else if (mainMsg[0].startsWith("\f")) {
 
-                    } else if(mainMsg[0].startsWith("\\")){
-                        String[] splitMsg = mainMsg[0].split("\t");
-                        int startIndex = Integer.parseInt(splitMsg[0].substring(1));
-                        int stopIndex = Integer.parseInt(splitMsg[1]);
-                        QuickSort ob = new QuickSort();
-                        ob.sort(array,startIndex,stopIndex);
+						String[] split = mainMsg[0].split("\b");
+						strings[0] = split[0].substring(1); //freq
+						strings[1] = split[1]; // core
+						strings[2] = split[2]; // device name
+						strings[3] = split[3]; // gpu
 
-                        List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
-                        BluetoothMessageService service = new BluetoothMessageService();
-                        service.connectService(socket.get(0));
-                        service.sendTask("\""+Arrays.toString(array));
+						try {
+							addDeviceToDB(Long.parseLong(strings[0]), Integer.parseInt(strings[1]), strings[2]);
+							new Handler().postDelayed(new Runnable() {
+								@Override
+								public void run() {
+									rankDevice(strings[0], strings[1], strings[3], strings[2]);
+								}
+							}, 500);
 
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("QuickSort")
-                                .setMessage("Sorted chunk and sent to master")
-                                .setPositiveButton("Ok",null)
-                                .show();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
 
-                    } else if(mainMsg[0].startsWith("\"")){
-                         newArr = new int[datapoints];
 
-                        int[] arry = (int[]) msg.obj;
-                        for(int i=0;i<(datapoints/splitWork);i++){
-                            newArr[index] = arry[i];
-                            index++;
-                        }
-                        tasks++;
-                        if(tasks == splitWork){
-                            QuickSort sort = new QuickSort();
-                            sort.sort(newArr,0,datapoints-1);
-                            tasks=0;
-                            index=0;
-                        }
+					} else if (mainMsg[0].startsWith("\t")) {
 
+						Log.i("asdf", mainMsg[0]);
+						String[] strss = mainMsg[0].split("\t");
+						faultTolerantAddresss = new ArrayList<>(Arrays.asList(strss));
+						for (String addr : strss) {
+							if (!addr.equals("")) {
+								faultTolerantAddresss.add(addr);
+								Log.i("asdf", "fta : " + addr);
+							}
+						}
 
+						if (!prefs.getMasterMacAddress().equals(""))
+							faultTolerantAddresss.add(prefs.getMasterMacAddress());
+						Log.i("asdff", faultTolerantAddresss.toString());
 
-                    }
-                    else {
 
-                        {
-                            Log.i("asdff", mainMsg[0]);
-                            calculatedSum += Integer.valueOf(mainMsg[0]);
-                            Log.i("asdf", "Calculated Sum " + calculatedSum);
-                            if (calculatedSum == 500500) {
-                                showRes(calculatedSum);
-                                calculatedSum = 0;
-                            }
-                        }
-                    }
+					} else if (mainMsg[0].startsWith("\b")) {
+						displayBroadcastMsg();
+					} else if (mainMsg[0].startsWith("\n")) {
+						String[] splitMsg = mainMsg[0].split("\t");
+						int startIndex = Integer.parseInt(splitMsg[0].substring(1));
+						int stopIndex = Integer.parseInt(splitMsg[1]);
+						Log.i("asdf", "Index received " + startIndex + "-" + stopIndex);
+						calculateVal(startIndex, stopIndex);
 
 
-                } else if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_WRITE) {
-                    if (isShowAlert)
-                        displayAlert();
-                }
+					} else if (mainMsg[0].startsWith("\'") || mainMsg[0].contains(", ") || mainMsg[0].contains("]")) { //slave performs the sort
 
-                deviceReadyView();
+						/*if (!mainMsg[0].startsWith(", ")) {
+							String[] fmsg2 = mainMsg[0].split(", ");
 
-            }
 
-        };
+						} else {*/
+							String fmsg = mainMsg[0].substring(2);
+							String[] fmsg2 = fmsg.split(", ");
 
+							Log.i("asdf", "myArraySize = " + myArraySize + ", arrayRec len = " + fmsg2.length);
 
-    }
+							if (myArraySize == fmsg2.length) {
+								Log.i("asdf", "for loop begins for sorting");
+								int[] recArray = new int[myArraySize];
+								for (int i = 0; i < fmsg2.length; i++) {
+									try {
+										recArray[i] = Integer.parseInt(fmsg2[i]);
+										//Log.i("asdf" , String.valueOf(recArray[i])  );
+									} catch (NumberFormatException e) {
+										int l = fmsg2[i].length();
+										recArray[i] = Integer.parseInt(fmsg2[i].substring(0, l - 1));
+										Log.i("asdf", "fixed faulty number with square bracket");
+										//Log.i("asdf" , String.valueOf(recArray[i]) );
+									}
+								}
 
-    private void showRes(int calculatedSum) {
+								Log.i("asdf", "Array created.");
 
-        new AlertDialog.Builder(this)
-                .setTitle("Result ")
-                .setMessage("Calculated sum obtained from cluster: " + calculatedSum)
-                .setPositiveButton("Ok", null)
-                .show();
-    }
+								QuickSort ob = new QuickSort();
+								ob.sort(recArray, 0, myArraySize - 1);
 
-    private void calculateVal(int startIndex, int stopIndex) {
+								Log.i("asdf", Arrays.toString(recArray));
 
-        Log.i("asdf", "Calculating in slave node");
-        int sum = 0;
-        for (int i = startIndex; i < stopIndex; i++) {
-            sum += i;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle("Slave Task Performed")
-                .setMessage("StartIndex:" + startIndex + " StopIndex:" + stopIndex + "\nSum:" + sum)
-                .setPositiveButton("Ok", null)
-                .show();
-        Log.i("asdf", "---SENDING TASK PERFORMED FROM SLAVE----");
+								Log.i("asdf", "Array Chunk is sorted. Sending data now");
+								Log.i("asdf", "dataset size " + a.length);
 
-        List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
-        BluetoothMessageService service = new BluetoothMessageService();
-        service.connectService(socket.get(0));
-        service.sendResultVal(String.valueOf(sum) + "\0");
+								List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
+								BluetoothMessageService service = new BluetoothMessageService();
+								service.connectService(socket.get(0));
+								service.sendTask("\"" + Arrays.toString(recArray) + "\0");
+							}
+						//}
 
 
-    }
+					} else if (mainMsg[0].startsWith("\\")) { //specify size of array to sort for slave
+						try {
+							myArraySize = Integer.parseInt(mainMsg[0].substring(1));
+						} catch (NumberFormatException e) {
+							e.printStackTrace();
+						}
 
-    private void displayBroadcastMsg() {
+						Log.i("asdf", "updated array size is " + myArraySize);
+						/*String[] splitMsg = mainMsg[0].split("\t");
+						int startIndex = Integer.parseInt(splitMsg[0].substring(1));
+						int stopIndex = Integer.parseInt(splitMsg[1]);
+						QuickSort ob = new QuickSort();
+						ob.sort(array, startIndex, stopIndex);
 
-        new AlertDialog.Builder(this)
-                .setTitle("Broadcast Msg")
-                .setMessage("Message received from master")
-                .setPositiveButton("OK", null)
-                .show();
+						List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
+						BluetoothMessageService service = new BluetoothMessageService();
+						service.connectService(socket.get(0));
+						service.sendTask("\"" + Arrays.toString(array));
 
-    }
+						new AlertDialog.Builder(MainActivity.this)
+								.setTitle("QuickSort")
+								.setMessage("Sorted chunk and sent to master")
+								.setPositiveButton("Ok", null)
+								.show();*/
 
 
-    @SuppressLint("SetTextI18n")
-    private void displayRank(String rank) {
+					} else if (mainMsg[0].startsWith("\"")) { //master task to get sorted data from slaves and sort it again
+						String fmsg = mainMsg[0].substring(2);
+						String[] fmsg2 = fmsg.split(", ");
+						int constval = arrPointer;
+						for (int i = 0; i < fmsg2.length; i++) {
+							try {
+								a[i + constval] = Integer.parseInt(fmsg2[i]);
+								arrPointer++;
+								//Log.i("asdf" , String.valueOf(recArray[i])  );
+							} catch (NumberFormatException e) {
+								int l = fmsg2[i].length();
+								a[i + constval] = Integer.parseInt(fmsg2[i].substring(0, l - 1));
+								arrPointer++;
+								Log.i("asdf", "fixed faulty number with square bracket");
+								//Log.i("asdf" , String.valueOf(recArray[i]) );
+							}
+						}
 
+						QuickSort ob = new QuickSort();
+						ob.sort(a, 0, myArraySize - 1);
 
-        realRank = Integer.parseInt(rank) + 1;
-        Log.i("asdf", "device rank is " + realRank);
-        Toast.makeText(this, "Device Rank is " + realRank, Toast.LENGTH_SHORT).show();
-        rankText.setText("This device is now slave to " + remoteDeviceName + " | Rank is " + realRank);
+						Log.i("asdf", Arrays.toString(a));
+						Log.i("asdf", "dataset size " + a.length);
 
 
-    }
+					} else {
 
-    private void addDeviceToDB(final long cpuFreq, final int cpuCores, final String deviceName) {
+						Log.i("asdff", mainMsg[0]);
+						calculatedSum += Integer.valueOf(mainMsg[0]);
+						Log.i("asdf", "Calculated Sum " + calculatedSum);
+						if (calculatedSum == 500500) {
+							showRes(calculatedSum);
+							calculatedSum = 0;
+						}
 
+					}
 
-        Devices addDevice = new Devices(deviceName, cpuFreq, cpuCores);
-        //if (!viewModel.isDeviceInDB(deviceName))
-        viewModel.insert(addDevice);
 
+				} else if (msg.what == BluetoothMessageService.MessageConstants.MESSAGE_WRITE) {
+					if (isShowAlert)
+						displayAlert();
+				}
 
-    }
+				deviceReadyView();
 
-    //Slave Node
-    private void displayAlert() {
+			}
 
-        String str = "Slave (this device " + Build.MODEL + ") connected to master " + remoteDeviceName;
+		};
 
-        prefs.setMasterMacAddress(remoteDeviceAddress);
-        prefs.setMyDeviceSlave(true);
-        new AlertDialog.Builder(this)
-                .setTitle("Connected to master")
-                .setMessage(str)
-                .setPositiveButton("OK", null)
-                .show();
-        isShowAlert = false;
 
-        deviceReadyListView.setVisibility(View.INVISIBLE);
+	}
 
+	private void showRes(int calculatedSum) {
 
-    }
+		new AlertDialog.Builder(this)
+				.setTitle("Result ")
+				.setMessage("Calculated sum obtained from cluster: " + calculatedSum)
+				.setPositiveButton("Ok", null)
+				.show();
+	}
 
-    //Master Node
-    private void rankDevice(String cpuFreq, String cpuCore, String gpu, final String deviceName) {
+	private void calculateVal(int startIndex, int stopIndex) {
 
-        prefs.setMyDeviceMaster(true);
+		Log.i("asdf", "Calculating in slave node");
+		int sum = 0;
+		for (int i = startIndex; i < stopIndex; i++) {
+			sum += i;
+		}
+		new AlertDialog.Builder(this)
+				.setTitle("Slave Task Performed")
+				.setMessage("StartIndex:" + startIndex + " StopIndex:" + stopIndex + "\nSum:" + sum)
+				.setPositiveButton("Ok", null)
+				.show();
+		Log.i("asdf", "---SENDING TASK PERFORMED FROM SLAVE----");
 
-        String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores : " + cpuCore + "\nGPU : " + gpu;
-        new AlertDialog.Builder(this)
-                .setTitle("Device Props obtained")
-                .setMessage(text)
-                .setPositiveButton("Ok", null)
-                .show();
+		List<BluetoothSocket> socket = new ArrayList<>(remoteAcceptDeviceIdList.values());
+		BluetoothMessageService service = new BluetoothMessageService();
+		service.connectService(socket.get(0));
+		service.sendResultVal(String.valueOf(sum) + "\0");
 
-        viewModel.getRankedDevices().observe(this, new Observer<List<String>>() {
-            @SuppressLint("HardwareIds")
-            @Override
-            public void onChanged(final List<String> deviceName) {
-                //send updated ranks to devices
-                Log.i("asdf", "sending updated ranks to device(s)");
-                if (remoteConnectDeviceIdList.size() != 0) {
-                    for (int i = 0; i < deviceName.size(); i++) {
-                        if (remoteConnectDeviceIdList.containsKey(deviceName.get(i))) {
-                            BluetoothSocket socket = remoteConnectDeviceIdList.get(deviceName.get(i));
-                            assert socket != null;
-                            if (socket.isConnected()) {
-                                BluetoothMessageService service = new BluetoothMessageService();
-                                service.connectService(socket);
-                                service.sendRanking(i);
 
-                                Log.i("asdf", "Sending fault tolerance data");
-                                //Send Fault tolerance data to next potential master
-                                if (i == 0) {
+	}
 
-                                    Log.i("asdf", "Sending fault tolerance data");
-                                    BluetoothMessageService service2 = new BluetoothMessageService();
-                                    service2.connectService(socket);
+	private void displayBroadcastMsg() {
 
-                                    List<BluetoothSocket> list = new ArrayList<>(remoteConnectDeviceIdList.values());
-                                    List<String> addr = new ArrayList<>();
-                                    for (BluetoothSocket soc : list) {
-                                        if (!socket.getRemoteDevice().getAddress().equals(soc.getRemoteDevice().getAddress()))
-                                            addr.add(soc.getRemoteDevice().getAddress());
-                                    }
-                                    service2.sendData(addr);
+		new AlertDialog.Builder(this)
+				.setTitle("Broadcast Msg")
+				.setMessage("Message received from master")
+				.setPositiveButton("OK", null)
+				.show();
 
-                                }
+	}
 
 
-                            }
-                        }
-                    }
-                }
-            }
-        });
+	@SuppressLint("SetTextI18n")
+	private void displayRank(String rank) {
 
-    }
 
-    void handleListViews() {
+		realRank = Integer.parseInt(rank) + 1;
+		Log.i("asdf", "device rank is " + realRank);
+		Toast.makeText(this, "Device Rank is " + realRank, Toast.LENGTH_SHORT).show();
+		rankText.setText("This device is now slave to " + remoteDeviceName + " | Rank is " + realRank);
 
 
-        ListView pairedListView = findViewById(R.id.pair_lv);
+	}
 
-        Set<String> devices = getPairedDevices().keySet();
-        Map<String, String> pairedDevices = getPairedDevices();
-        pairedList.clear();
-        pairedList.addAll(devices);
+	private void addDeviceToDB(final long cpuFreq, final int cpuCores, final String deviceName) {
 
-        pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
-        pairedListView.setAdapter(pairedListAdapter);
 
-        pairedListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+		Devices addDevice = new Devices(deviceName, cpuFreq, cpuCores);
+		//if (!viewModel.isDeviceInDB(deviceName))
+		viewModel.insert(addDevice);
 
-                Log.i("asdf", pairedList.get(position));
-                BluetoothDevice device = getPairedBtDevices(pairedList.get(position));
-                Log.i("asdf", "Pairing");
-                if (device != null && BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
-                    Toast.makeText(MainActivity.this, "Connecting", Toast.LENGTH_SHORT).show();
-                    BtConnectThread thread = new BtConnectThread(device);
-                    thread.start();
-                }
-            }
-        });
 
+	}
 
-    }
+	//Slave Node
+	private void displayAlert() {
 
-    public static void createThreads() {
-        if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
+		String str = "Slave (this device " + Build.MODEL + ") connected to master " + remoteDeviceName;
 
-            for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
-                thread[i] = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
-                thread[i].start();
+		prefs.setMasterMacAddress(remoteDeviceAddress);
+		prefs.setMyDeviceSlave(true);
+		new AlertDialog.Builder(this)
+				.setTitle("Connected to master")
+				.setMessage(str)
+				.setPositiveButton("OK", null)
+				.show();
+		isShowAlert = false;
 
-            }
-            threadCreated = true;
-        }
-    }
+		deviceReadyListView.setVisibility(View.INVISIBLE);
 
-    public static void releaseThreads() {
-        if (threadCreated) {
-            for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
-                thread[i].cancel();
 
-            }
-            threadCreated = false;
-        }
+	}
 
-    }
+	//Master Node
+	private void rankDevice(String cpuFreq, String cpuCore, String gpu, final String deviceName) {
 
-    public void deviceReadyView() {
+		prefs.setMyDeviceMaster(true);
 
-        deviceReadyListView.setVisibility(View.VISIBLE);
-        deviceReadyList.clear();
-        deviceReadyList.addAll(remoteConnectDeviceIdList.keySet());
-        deviceReadyListView.setAdapter(deviceReadyListAdapter);
+		String text = "Device Name : " + deviceName + "\nDevice CPU Freq : " + cpuFreq + " Hz\nDevice max cores : " + cpuCore + "\nGPU : " + gpu;
+		new AlertDialog.Builder(this)
+				.setTitle("Device Props obtained")
+				.setMessage(text)
+				.setPositiveButton("Ok", null)
+				.show();
 
-    }
+		viewModel.getRankedDevices().observe(this, new Observer<List<String>>() {
+			@SuppressLint("HardwareIds")
+			@Override
+			public void onChanged(final List<String> deviceName) {
+				//send updated ranks to devices
+				Log.i("asdf", "sending updated ranks to device(s)");
+				if (remoteConnectDeviceIdList.size() != 0) {
+					for (int i = 0; i < deviceName.size(); i++) {
+						if (remoteConnectDeviceIdList.containsKey(deviceName.get(i))) {
+							BluetoothSocket socket = remoteConnectDeviceIdList.get(deviceName.get(i));
+							assert socket != null;
+							if (socket.isConnected()) {
+								BluetoothMessageService service = new BluetoothMessageService();
+								service.connectService(socket);
+								service.sendRanking(i);
 
-    static void setButtonText(int btnFlag) {
+								Log.i("asdf", "Sending fault tolerance data");
+								//Send Fault tolerance data to next potential master
+								if (i == 0) {
 
-        switch (btnFlag) {
-            case 0:
-                btButton.setText("Enable Bluetooth");
-                btButton.setVisibility(View.VISIBLE);
-                break;
-            case 1:
-                btButton.setText("Enable Discovery");
-                btButton.setVisibility(View.VISIBLE);
-                break;
-            case 2:
-                btButton.setVisibility(View.GONE);
-                break;
-        }
-    }
+									Log.i("asdf", "Sending fault tolerance data");
+									BluetoothMessageService service2 = new BluetoothMessageService();
+									service2.connectService(socket);
 
-    private void enableDiscovery() {
+									List<BluetoothSocket> list = new ArrayList<>(remoteConnectDeviceIdList.values());
+									List<String> addr = new ArrayList<>();
+									for (BluetoothSocket soc : list) {
+										if (!socket.getRemoteDevice().getAddress().equals(soc.getRemoteDevice().getAddress()))
+											addr.add(soc.getRemoteDevice().getAddress());
+									}
+									service2.sendData(addr);
 
-        Intent discoverableIntent =
-                new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-        startActivity(discoverableIntent);
+								}
 
-    }
 
-    private void myDeviceProp() {
+							}
+						}
+					}
+				}
+			}
+		});
 
-        masterProp.put("VERSION.RELEASE", Build.VERSION.RELEASE);
-        masterProp.put("VERSION.INCREMENTAL", Build.VERSION.INCREMENTAL);
-        masterProp.put("VERSION.SDK_INT", String.valueOf(Build.VERSION.SDK_INT));
-        masterProp.put("BOARD", Build.BOARD);
-        masterProp.put("DEVICE", Build.DEVICE);
-        masterProp.put("CPU_MAX_FREQ", deviceProps.getMaxFreq());
+	}
 
+	void handleListViews() {
 
-        Log.i("asdf", "My device number of cores: " + deviceProps.getNumberOfCores());
-        Log.i("asdf", "My device max freq: " + deviceProps.getMaxFreq());
-        Log.i("asdf", "My device gpu: " + deviceProps.getGPUinfo());
-        Log.i("asdf", "My device name: " + Build.MODEL);
 
+		ListView pairedListView = findViewById(R.id.pair_lv);
 
-    }
+		Set<String> devices = getPairedDevices().keySet();
+		Map<String, String> pairedDevices = getPairedDevices();
+		pairedList.clear();
+		pairedList.addAll(devices);
 
+		pairedListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, pairedList);
+		pairedListView.setAdapter(pairedListAdapter);
 
-    public void enableBluetooth() {
+		pairedListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+			@Override
+			public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
-        if (!btAdapter.isEnabled()) {
-            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-            //enableDiscovery();
-        } else {
-            ManageUUID initUUIDs = new ManageUUID();
-            ParcelUuid[] UUIDList;
-            UUIDList = initUUIDs.getUUIDs();
-            for (ParcelUuid uuids : UUIDList) {
-                Log.i("asdf", uuids.getUuid().toString());
-            }
-            // enableDiscovery();
-            //getPairedDevices();
-        }
+				Log.i("asdf", pairedList.get(position));
+				BluetoothDevice device = getPairedBtDevices(pairedList.get(position));
+				Log.i("asdf", "Pairing");
+				if (device != null && BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
+					Toast.makeText(MainActivity.this, "Connecting", Toast.LENGTH_SHORT).show();
+					BtConnectThread thread = new BtConnectThread(device);
+					thread.start();
+				}
+			}
+		});
 
-    }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_OK) {
-            Toast.makeText(this, "bt enabled", Toast.LENGTH_SHORT).show();
+	}
 
-            btnFlag = 1;
-            setButtonText(btnFlag);
+	public static void createThreads() {
+		if (BluetoothAdapter.getDefaultAdapter().getScanMode() == BluetoothAdapter.SCAN_MODE_CONNECTABLE) {
 
-        } else {
-            Toast.makeText(this, "please enable bt by granting permission", Toast.LENGTH_SHORT).show();
-        }
-    }
+			for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
+				thread[i] = new BtAcceptThread(manageUUID.getDummyUuids().get(i).toString());
+				thread[i].start();
 
-    static Map<String, String> getPairedDevices() {
-        Set<BluetoothDevice> pairedDevices = BluetoothAdapter.getDefaultAdapter().getBondedDevices();
-        Map<String, String> btPairedList = new HashMap<>();
+			}
+			threadCreated = true;
+		}
+	}
 
-        if (pairedDevices.size() > 0) {
-            // There are paired devices. Get the name and address of each paired device.
-            for (BluetoothDevice device : pairedDevices) {
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-                btPairedList.put(deviceName, deviceHardwareAddress);
-                Log.i("asdf", "Device Name: " + deviceName + ", Device MAC Address: " + deviceHardwareAddress);
-            }
-        }
-        return btPairedList;
+	public static void releaseThreads() {
+		if (threadCreated) {
+			for (int i = 0; i < manageUUID.getDummyUuids().size(); i++) {
+				thread[i].cancel();
 
-    }
+			}
+			threadCreated = false;
+		}
 
-    private BluetoothDevice getPairedBtDevices(String deviceName) {
-        Set<BluetoothDevice> pairedDevices = BluetoothAdapter.getDefaultAdapter().getBondedDevices();
-        if (pairedDevices.size() > 0) {
-            for (BluetoothDevice device : pairedDevices) {
-                if (device.getName().equals(deviceName))
-                    return device;
-            }
-        }
-        return null;
-    }
+	}
 
-    @Override
-    public void onClick(View v) {
+	public void deviceReadyView() {
 
-        switch (v.getId()) {
+		deviceReadyListView.setVisibility(View.VISIBLE);
+		deviceReadyList.clear();
+		deviceReadyList.addAll(remoteConnectDeviceIdList.keySet());
+		deviceReadyListView.setAdapter(deviceReadyListAdapter);
 
-            case R.id.bt_btn:
-                if (btnFlag == 0)
-                    enableBluetooth();
-                else enableDiscovery();
-                break;
+	}
 
-        }
-    }
+	static void setButtonText(int btnFlag) {
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        return true;
-    }
+		switch (btnFlag) {
+			case 0:
+				btButton.setText("Enable Bluetooth");
+				btButton.setVisibility(View.VISIBLE);
+				break;
+			case 1:
+				btButton.setText("Enable Discovery");
+				btButton.setVisibility(View.VISIBLE);
+				break;
+			case 2:
+				btButton.setVisibility(View.GONE);
+				break;
+		}
+	}
 
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+	private void enableDiscovery() {
 
+		Intent discoverableIntent =
+				new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+		discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+		startActivity(discoverableIntent);
 
-        switch (item.getItemId()) {
-            case R.id.menu_task1:
-                if (remoteConnectDeviceIdList.size() == 0) {
+	}
 
-                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+	private void myDeviceProp() {
 
-                } else
-                    broadcastMsg();
-                break;
-            case R.id.menu_task2:
-                if (remoteConnectDeviceIdList.size() == 0) {
+		masterProp.put("VERSION.RELEASE", Build.VERSION.RELEASE);
+		masterProp.put("VERSION.INCREMENTAL", Build.VERSION.INCREMENTAL);
+		masterProp.put("VERSION.SDK_INT", String.valueOf(Build.VERSION.SDK_INT));
+		masterProp.put("BOARD", Build.BOARD);
+		masterProp.put("DEVICE", Build.DEVICE);
+		masterProp.put("CPU_MAX_FREQ", deviceProps.getMaxFreq());
 
-                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
 
-                } else
-                    new AlertDialog.Builder(this)
-                            .setTitle("Confirmation")
-                            .setMessage("Are you sure?")
-                            .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    performAddingNumbers();
-                                }
-                            })
-                            .setNegativeButton("No", null)
-                            .show();
-                break;
+		Log.i("asdf", "My device number of cores: " + deviceProps.getNumberOfCores());
+		Log.i("asdf", "My device max freq: " + deviceProps.getMaxFreq());
+		Log.i("asdf", "My device gpu: " + deviceProps.getGPUinfo());
+		Log.i("asdf", "My device name: " + Build.MODEL);
 
-            case R.id.menu_task3:
-                if (remoteConnectDeviceIdList.size() == 0) {
 
-                    Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+	}
 
-                } else {
-                    sendMessage();
-                }
 
-                break;
+	public void enableBluetooth() {
 
-            case R.id.restart_threads:
+		if (!btAdapter.isEnabled()) {
+			Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+			startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+			//enableDiscovery();
+		} else {
+			ManageUUID initUUIDs = new ManageUUID();
+			ParcelUuid[] UUIDList;
+			UUIDList = initUUIDs.getUUIDs();
+			for (ParcelUuid uuids : UUIDList) {
+				Log.i("asdf", uuids.getUuid().toString());
+			}
+			// enableDiscovery();
+			//getPairedDevices();
+		}
+
+	}
+
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == REQUEST_ENABLE_BT && resultCode == RESULT_OK) {
+			Toast.makeText(this, "bt enabled", Toast.LENGTH_SHORT).show();
+
+			btnFlag = 1;
+			setButtonText(btnFlag);
+
+		} else {
+			Toast.makeText(this, "please enable bt by granting permission", Toast.LENGTH_SHORT).show();
+		}
+	}
+
+	static Map<String, String> getPairedDevices() {
+		Set<BluetoothDevice> pairedDevices = BluetoothAdapter.getDefaultAdapter().getBondedDevices();
+		Map<String, String> btPairedList = new HashMap<>();
+
+		if (pairedDevices.size() > 0) {
+			// There are paired devices. Get the name and address of each paired device.
+			for (BluetoothDevice device : pairedDevices) {
+				String deviceName = device.getName();
+				String deviceHardwareAddress = device.getAddress(); // MAC address
+				btPairedList.put(deviceName, deviceHardwareAddress);
+				Log.i("asdf", "Device Name: " + deviceName + ", Device MAC Address: " + deviceHardwareAddress);
+			}
+		}
+		return btPairedList;
+
+	}
+
+	private BluetoothDevice getPairedBtDevices(String deviceName) {
+		Set<BluetoothDevice> pairedDevices = BluetoothAdapter.getDefaultAdapter().getBondedDevices();
+		if (pairedDevices.size() > 0) {
+			for (BluetoothDevice device : pairedDevices) {
+				if (device.getName().equals(deviceName))
+					return device;
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public void onClick(View v) {
+
+		switch (v.getId()) {
+
+			case R.id.bt_btn:
+				if (btnFlag == 0)
+					enableBluetooth();
+				else enableDiscovery();
+				break;
+
+		}
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		getMenuInflater().inflate(R.menu.main_menu, menu);
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+
+
+		switch (item.getItemId()) {
+			case R.id.menu_task1:
+				if (remoteConnectDeviceIdList.size() == 0) {
+
+					Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+				} else
+					broadcastMsg();
+				break;
+			case R.id.menu_task2:
+				if (remoteConnectDeviceIdList.size() == 0) {
+
+					Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+				} else
+					new AlertDialog.Builder(this)
+							.setTitle("Confirmation")
+							.setMessage("Are you sure?")
+							.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface dialog, int which) {
+									performAddingNumbers();
+								}
+							})
+							.setNegativeButton("No", null)
+							.show();
+				break;
+
+			case R.id.menu_task3: //Quick Sort
+				if (remoteConnectDeviceIdList.size() == 0) {
+
+					Toast.makeText(this, "No devices ready to execute task or device is not master", Toast.LENGTH_SHORT).show();
+
+				} else {
+					quickSortData();
+				}
+
+				break;
+
+			case R.id.restart_threads:
                 /*releaseThreads();
                 new Handler().postDelayed(new Runnable() {
                     @Override
@@ -710,148 +779,187 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         createThreads();
                     }
                 }, 500);*/
-                Toast.makeText(this, "Temporarily disabled.", Toast.LENGTH_SHORT).show();
-                break;
+				Toast.makeText(this, "Temporarily disabled.", Toast.LENGTH_SHORT).show();
+				break;
 
-        }
+		}
 
-        return super.onOptionsItemSelected(item);
-    }
-
-    static int datapoints = 10000;
-    static int[] arr = new int[datapoints];
-    static int splitWork = remoteConnectDeviceIdList.size();
-
-    private void generateRandomNo(){
-
-        Random random = new Random();
-        for(int i=0;i<datapoints;i++){
-            arr[i] = 1 +random.nextInt(1000);
-        }
+		return super.onOptionsItemSelected(item);
+	}
 
 
-    }
+	static int[] arr = new int[datapoints];
+	static int[] arr2 = new int[datapoints2];
+	static int[] arr3 = new int[datapoints3];
+	static int splitWork = remoteConnectDeviceIdList.size();
+	static int qsplitSize;
 
-    private void sendMessage() {
+	private void generateRandomNo(int j) {
+		splitWork = remoteConnectDeviceIdList.size();
+		Random random = new Random();
+		switch (j) {
+			case 1:
+				for (int i = 0; i < datapoints; i++) {
+					arr[i] = 1 + random.nextInt(1000);
+					qsplitSize = datapoints / splitWork;
+				}
+				break;
 
+			case 2:
+				for (int i = 0; i < datapoints2; i++) {
+					arr2[i] = 1 + random.nextInt(1000);
+					qsplitSize = datapoints2 / splitWork;
+				}
+				break;
 
-        generateRandomNo();
-        @SuppressLint("UseSparseArrays")
-        int[][] range = new int[splitWork][2];
-        Log.i("asdf", "Splitting Load based on size of cluster");
-        int prevSplitNum = 0;
-        int splitNum = 0;
-        int splitSize = (int) loopCount / splitWork;
-
-
-        for (int i = 0; i < splitWork; i++) {
-            splitNum = splitNum + splitSize;
-            for (int j = 0; j < 2; j++) {
-                if (j == 0)
-                    range[i][j] = prevSplitNum;
-                else
-                    range[i][j] = splitNum;
-            }
-            Log.i("asdf", "Start:" + prevSplitNum + ",End:" + splitNum);
-
-
-            prevSplitNum = splitNum;
-        }
-        range[splitWork - 1][1] = loopCount + 1;
-
-        int i=0;
-        for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
-            Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
-            BluetoothMessageService service = new BluetoothMessageService();
-            service.connectService(soc);
-
-            service.sendTask("\'" + Arrays.toString(arr) +"\0");
-            service.sendTask("\\" +  range[i][0] + "\t" + range[i][1] + "\0");
-            i++;
-        }
-
-    }
+			case 3:
+				for (int i = 0; i < datapoints3; i++) {
+					arr3[i] = 1 + random.nextInt(1000);
+					qsplitSize = datapoints3 / splitWork;
+				}
+				break;
+		}
 
 
-    /**
-     * A simple task of adding numbers to be parallelized
-     * <p>
-     * sum = 0;
-     * for(int i=0; i<1000; i++){
-     * sum = sum + i;
-     * }
-     * <p>
-     * Above code is parallelized on various nodes in the cluster
-     */
-    static int loopCount = 1000;
+	}
 
-    private void performAddingNumbers() {
+	int datasetSize = 1;
 
-        //if (prefs.isMyDeviceMaster() && remoteConnectDeviceIdList.size() != 0) {
+	//Quick Sort
+	private void quickSortData() {
 
-        Toast.makeText(this, "--Starting Task--", Toast.LENGTH_SHORT).show();
+		Log.i("asdff", "-----STARTING QUICKSORT----");
+		// 1 - 10k
+		// 2 - 100k
+		// 3 - 1M
+		generateRandomNo(datasetSize);
+		splitWork = remoteConnectDeviceIdList.size();
+		@SuppressLint("UseSparseArrays")
+		int[][] range = new int[splitWork][2];
+		Log.i("asdf", "Splitting Load based on size of cluster");
+		int prevSplitNum = 0;
+		int splitNum = 0;
 
-        Log.i("asdf", "----------STARTING TASK FROM MASTER------------");
-
-
-        @SuppressLint("UseSparseArrays")
-        int[][] range = new int[splitWork][2];
-        Log.i("asdf", "Splitting Load based on size of cluster");
-        int prevSplitNum = 0;
-        int splitNum = 0;
-        int splitSize = (int) loopCount / splitWork;
+		//int qsplitSize = (int) datapoints / splitWork;
 
 
-        for (int i = 0; i < splitWork; i++) {
-            splitNum = splitNum + splitSize;
-            for (int j = 0; j < 2; j++) {
-                if (j == 0)
-                    range[i][j] = prevSplitNum;
-                else
-                    range[i][j] = splitNum;
-            }
-            Log.i("asdf", "Start:" + prevSplitNum + ",End:" + splitNum);
+		for (int i = 0; i < splitWork; i++) {
+			splitNum = splitNum + qsplitSize;
+			for (int j = 0; j < 2; j++) {
+				if (j == 0)
+					range[i][j] = prevSplitNum;
+				else
+					range[i][j] = splitNum;
+			}
+			Log.i("asdf", "Start:" + prevSplitNum + ",End:" + splitNum);
 
 
-            prevSplitNum = splitNum;
-        }
-        range[splitWork - 1][1] = loopCount + 1;
+			prevSplitNum = splitNum;
+		}
+		range[splitWork - 1][1] = loopCount + 1;
+
+		int i = 0;
+		for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
+			Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
+			final BluetoothMessageService service = new BluetoothMessageService();
+			service.connectService(soc);
+
+			Log.i("asdf","array sent to sort is " + Arrays.toString(arr));
+			Log.i("asdf","second last and last element of array is " + arr[datapoints-2] + "," + arr[datapoints-1]);
+			service.sendTask("\\" + (int) datapoints / datasetSize + "\0");
+			new Handler().postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					service.sendTask("\'" + Arrays.toString(arr) + "\0");
+				}
+			}, 500);
+			//service.sendTask("\'" + Arrays.toString(arr) + "\0");
+			//service.sendTask("\\" + range[i][0] + "\t" + range[i][1] + "\0");
+			i++;
+		}
+
+	}
 
 
-        Log.i("asdf", "------------SENDING TO DEVICES-----------");
+	/**
+	 * A simple task of adding numbers to be parallelized
+	 * <p>
+	 * sum = 0;
+	 * for(int i=0; i<1000; i++){
+	 * sum = sum + i;
+	 * }
+	 * <p>
+	 * Above code is parallelized on various nodes in the cluster
+	 */
+	static int loopCount = 1000;
 
-        int i = 0;
-        for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
-            Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
-            BluetoothMessageService service = new BluetoothMessageService();
-            service.connectService(soc);
+	private void performAddingNumbers() {
 
+		//if (prefs.isMyDeviceMaster() && remoteConnectDeviceIdList.size() != 0) {
 
-            service.sendTask("\n" + range[i][0] + "\t" + range[i][1] + "\0");
-            i++;
-        }
+		Toast.makeText(this, "--Starting Task--", Toast.LENGTH_SHORT).show();
 
-
-        // }
-
-
-    }
-
-    private void broadcastMsg() {
-
-        if (prefs.isMyDeviceMaster()) {
-            int size = remoteConnectDeviceIdList.size();
-            for (BluetoothSocket socket : remoteConnectDeviceIdList.values()) {
-                BluetoothMessageService service = new BluetoothMessageService();
-                service.connectService(socket);
-                service.sendBroadcast();
-            }
-        }
+		Log.i("asdf", "----------STARTING TASK FROM MASTER------------");
 
 
-    }
+		@SuppressLint("UseSparseArrays")
+		int[][] range = new int[splitWork][2];
+		Log.i("asdf", "Splitting Load based on size of cluster");
+		int prevSplitNum = 0;
+		int splitNum = 0;
+		int splitSize = (int) loopCount / splitWork;
 
 
-    public native void taskJNI(Map remoteDeviceId);
+		for (int i = 0; i < splitWork; i++) {
+			splitNum = splitNum + splitSize;
+			for (int j = 0; j < 2; j++) {
+				if (j == 0)
+					range[i][j] = prevSplitNum;
+				else
+					range[i][j] = splitNum;
+			}
+			Log.i("asdf", "Start:" + prevSplitNum + ",End:" + splitNum);
+
+
+			prevSplitNum = splitNum;
+		}
+		range[splitWork - 1][1] = loopCount + 1;
+
+
+		Log.i("asdf", "------------SENDING TO DEVICES-----------");
+
+		int i = 0;
+		for (BluetoothSocket soc : remoteConnectDeviceIdList.values()) {
+			Log.i("asdf", String.valueOf(remoteConnectDeviceIdList.size()));
+			BluetoothMessageService service = new BluetoothMessageService();
+			service.connectService(soc);
+
+
+			service.sendTask("\n" + range[i][0] + "\t" + range[i][1] + "\0");
+			i++;
+		}
+
+
+		// }
+
+
+	}
+
+	private void broadcastMsg() {
+
+		if (prefs.isMyDeviceMaster()) {
+			int size = remoteConnectDeviceIdList.size();
+			for (BluetoothSocket socket : remoteConnectDeviceIdList.values()) {
+				BluetoothMessageService service = new BluetoothMessageService();
+				service.connectService(socket);
+				service.sendBroadcast();
+			}
+		}
+
+
+	}
+
+
+	public native void taskJNI(Map remoteDeviceId);
 
 }

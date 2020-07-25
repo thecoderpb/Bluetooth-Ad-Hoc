@@ -10,6 +10,8 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -90,6 +92,7 @@ public class BluetoothMessageService {
     public void sendTask(String message) {
 
         byte[] msg = message.getBytes();
+        Log.i("asdf", "byte size" + msg.length);
         thread.write(msg,message);
 
     }
@@ -138,7 +141,7 @@ public class BluetoothMessageService {
         }
 
         public void run() {
-            mmBuffer = new byte[2048];
+            mmBuffer = new byte[4893];
             int numBytes; // bytes returned from read()
 
             // Keep listening to the InputStream until an exception occurs.
@@ -161,6 +164,36 @@ public class BluetoothMessageService {
 
         // Call this from the main activity to send data to the remote device.
         public void write(byte[] bytes, String msg) {
+            try {
+                mmOutStream.write(bytes);
+
+                // Share the sent message with the UI activity.
+                Message writtenMsg = handler.obtainMessage(
+                        MessageConstants.MESSAGE_WRITE, -1, -1, mmBuffer);
+
+                writtenMsg.sendToTarget();
+                Log.i("asdf", "message sent");
+            } catch (IOException e) {
+                Log.i("asdf", "Error occurred when sending data", e);
+
+                // Send a failure message back to the activity.
+                Message writeErrorMsg =
+                        handler.obtainMessage(MessageConstants.MESSAGE_TOAST);
+                Bundle bundle = new Bundle();
+                bundle.putString("toast",
+                        "Couldn't send data to the other device");
+                writeErrorMsg.setData(bundle);
+                handler.sendMessage(writeErrorMsg);
+            }
+        }
+
+        public void writes(int dataPoints){
+            ByteBuffer byteBuffer = ByteBuffer.allocate(dataPoints * 4);
+            IntBuffer intBuffer = byteBuffer.asIntBuffer();
+            intBuffer.put(dataPoints);
+
+            byte[] bytes = byteBuffer.array();
+
             try {
                 mmOutStream.write(bytes);
 
