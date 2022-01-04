@@ -23,4 +23,4 @@ Open Android Studio and open the location of the project. Let the gradle project
 <br> Then connect your device and run the code.Upon successfull installation, the app will run on your device. Follow the prompts on the screen to test the app.
 
 <br><br>
-Created by Pratik Byathnal and Sarvesh Kedia for the course Heterogeneous Parallelism
+Created by Pratik Byathnal for the course Heterogeneous Parallelism
